@@ -33,16 +33,24 @@ var document = new PagedDocument
     Typography = new Typography(),
     IncludeCover = true,
     IncludeToc = true,
+    First = new FirstPage { Lines = ["Trade sample"] },
+    Last = new LastPage { Title = "Colophon", Lines = ["End."] },
     Header = new RunningChrome { Template = "{title}" },
     Footer = new RunningChrome { Template = "{page}" },
     Body =
     [
         new HeadingBlock { Level = 1, Text = "Section One" },
         new ParagraphBlock { Text = "Once upon a time…" },
+        new TableBlock
+        {
+            Headers = ["A", "B"],
+            Rows = [["1", "2"]],
+        },
     ],
 };
 ```
 
+`DefaultMargin` is print-oriented (binding 0.75″ / outer 0.5″ / head 0.5″ / foot 0.65″). Use `TrimPresets.ReportMargin` for uniform 1″.
 ## Related packages
 
 | Package | When to use |

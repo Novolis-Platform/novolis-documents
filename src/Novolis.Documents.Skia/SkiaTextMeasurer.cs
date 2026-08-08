@@ -22,9 +22,15 @@ public sealed class SkiaTextMeasurer : ITextMeasurer
         if (string.IsNullOrEmpty(text))
             return style.FontSizePt * style.LineHeight;
 
+        var lines = WrapLines(text, widthPt, style);
+        return System.Math.Max(style.FontSizePt, lines.Count * style.FontSizePt * style.LineHeight);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> WrapLines(string text, float widthPt, TextStyle style)
+    {
         var typeface = style.Bold ? _bold : _regular;
         using var font = new SKFont(typeface, style.FontSizePt);
-        var lines = DocumentPdf.WrapLines(text, font, widthPt);
-        return System.Math.Max(style.FontSizePt, lines.Count * style.FontSizePt * style.LineHeight);
+        return DocumentPdf.WrapLines(text ?? string.Empty, font, widthPt);
     }
 }

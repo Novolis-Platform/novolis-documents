@@ -12,8 +12,8 @@ public sealed class PageSetup
     public required Thickness Margin { get; init; }
 
     /// <summary>Height reserved for the running header band (points).</summary>
-    public Length HeaderBand { get; init; } = LengthUnits.FromPoints(18f);
+    public Length HeaderBand { get; init; } = LengthUnits.FromPoints(16f);
 
     /// <summary>Height reserved for the running footer band (points).</summary>
-    public Length FooterBand { get; init; } = LengthUnits.FromPoints(18f);
+    public Length FooterBand { get; init; } = LengthUnits.FromPoints(16f);
 }

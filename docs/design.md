@@ -25,17 +25,17 @@ Novolis.Documents.Skia   (+ SkiaSharp)
 ## Hard non-goals (v1)
 
 - Constraint layout / fluent Column-Row DSL (QuestPDF)
-- Tables, images, lists, code blocks, footnotes, multi-column
+- Images, nested blocks in cells, footnotes, multi-column
 - Markdown/Markdig inside this repo
 - Competing as a general-purpose PDF SDK
 - Domain-specific product vocabulary in the public API (no book/manuscript/fiction types)
 
 ## Chrome rules
 
-- Cover: no running header/footer
-- TOC: footer page numbers only
-- Body: header + footer; optional suppress header on H1-open pages
-- Last: optional colophon
+- First/title page: no running header/footer (`First` / `IncludeCover`)
+- Contents: footer page numbers only
+- Body: header + footer; optional suppress header on level-1-open pages
+- Last: optional colophon (`LastPage`)
 
 ## Consumers
 

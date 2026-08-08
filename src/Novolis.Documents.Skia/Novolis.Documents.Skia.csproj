@@ -13,4 +13,9 @@
     <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
     <ProjectReference Include="..\Novolis.Documents.Layout\Novolis.Documents.Layout.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\LiberationSerif-Regular.ttf" LogicalName="Novolis.Documents.Skia.Fonts.LiberationSerif-Regular.ttf" />
+    <EmbeddedResource Include="Fonts\LiberationSerif-Bold.ttf" LogicalName="Novolis.Documents.Skia.Fonts.LiberationSerif-Bold.ttf" />
+    <None Include="Fonts\LICENSE-Liberation.txt" Pack="true" PackagePath="LICENSE-Liberation.txt" />
+  </ItemGroup>
 </Project>

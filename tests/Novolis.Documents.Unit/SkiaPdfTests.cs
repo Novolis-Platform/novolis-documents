@@ -33,6 +33,7 @@ public sealed class SkiaPdfTests
 
         var bytes = DocumentPdf.ToBytes(document);
         await Assert.That(bytes.Length).IsGreaterThan(500);
+        await Assert.That(bytes.Length).IsLessThan(80_000);
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
         await Assert.That(bytes[1]).IsEqualTo((byte)'P');
     }

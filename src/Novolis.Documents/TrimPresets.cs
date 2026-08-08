@@ -21,11 +21,19 @@ public static class TrimPresets
     public static Size USLetter { get; } =
         new(LengthUnits.FromInches(8.5f), LengthUnits.FromInches(11f));
 
-    /// <summary>Default content margins (slightly tighter right).</summary>
+    /// <summary>
+    /// Print-oriented interior margins for a single-sided PDF preview of a bound page:
+    /// larger binding edge (left), tighter outer (right), modest head/foot.
+    /// Not Word’s 1″ uniform box.
+    /// </summary>
     public static Thickness DefaultMargin { get; } =
         new(
-            LengthUnits.FromInches(0.65f),
             LengthUnits.FromInches(0.75f),
-            LengthUnits.FromInches(0.55f),
-            LengthUnits.FromInches(0.75f));
+            LengthUnits.FromInches(0.5f),
+            LengthUnits.FromInches(0.5f),
+            LengthUnits.FromInches(0.65f));
+
+    /// <summary>Uniform 1″ margins (report / Word-like).</summary>
+    public static Thickness ReportMargin { get; } =
+        Thickness.Uniform(LengthUnits.FromInches(1f));
 }

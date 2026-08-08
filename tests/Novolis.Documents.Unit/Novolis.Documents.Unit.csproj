@@ -7,11 +7,19 @@
   <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" />
     <PackageReference Include="Novolis.Math.Measure" />
+    <PackageReference Include="Novolis.Xsd.Ubl" />
+    <PackageReference Include="Novolis.Xsd.Ubl.Lean" />
     <PackageReference Include="TUnit" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Novolis.Documents\Novolis.Documents.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Documents.Layout\Novolis.Documents.Layout.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Documents.Skia\Novolis.Documents.Skia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\novolis-xsd\tests\Novolis.Xsd.Unit\TestData\UBL-Invoice-2.1-Example.xml"
+          Link="TestData\UBL-Invoice-2.1-Example.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('..\..\..\novolis-xsd\tests\Novolis.Xsd.Unit\TestData\UBL-Invoice-2.1-Example.xml')" />
   </ItemGroup>
 </Project>

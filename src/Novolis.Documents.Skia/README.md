@@ -10,6 +10,8 @@
 
 SkiaSharp PDF writer for `PagedDocument`. Implements `ITextMeasurer` and paints cover, TOC, body, and chrome. No Skia types leak into `Novolis.Documents` / `.Layout` public APIs.
 
+Embeds a Latin-subset **Liberation Serif** (OFL) by default so short PDFs stay small (~tens of KB) instead of shipping full system Georgia. Override with `DocumentPdfOptions.BodyFontPath` / `BoldFontPath`.
+
 ## Install
 
 ```bash

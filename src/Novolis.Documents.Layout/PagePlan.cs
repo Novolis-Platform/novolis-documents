@@ -7,6 +7,9 @@ public interface ITextMeasurer
 {
     /// <summary>Returns the height in points required to draw <paramref name="text"/>.</summary>
     float MeasureHeight(string text, float widthPt, TextStyle style);
+
+    /// <summary>Wraps <paramref name="text"/> into display lines for <paramref name="widthPt"/>.</summary>
+    IReadOnlyList<string> WrapLines(string text, float widthPt, TextStyle style);
 }
 
 /// <summary>Text style passed to <see cref="ITextMeasurer"/>.</summary>

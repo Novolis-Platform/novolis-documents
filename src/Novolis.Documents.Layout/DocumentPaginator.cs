@@ -13,9 +13,9 @@ public static class DocumentPaginator
         ArgumentNullException.ThrowIfNull(measurer);
 
         var pages = new List<PageSlice>();
-        var h1PageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var level1PageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        if (document.IncludeCover)
+        if (document.HasFirstPage)
         {
             pages.Add(new PageSlice
             {
@@ -27,24 +27,22 @@ public static class DocumentPaginator
             });
         }
 
-        // First pass: body only (no TOC yet) to discover H1 page numbers.
         var bodyStartNumber = pages.Count + 1;
-        var bodyPages = PaginateBody(document, measurer, bodyStartNumber, h1PageNumbers);
+        var bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1PageNumbers);
 
         List<TocEntry> tocEntries = [];
         if (document.IncludeToc)
         {
-            tocEntries = h1PageNumbers
+            tocEntries = level1PageNumbers
                 .Select(kv => new TocEntry(kv.Key, kv.Value))
                 .OrderBy(e => e.PageNumber)
                 .ThenBy(e => e.Title, StringComparer.Ordinal)
                 .ToList();
 
-            // Re-paginate: cover → TOC → body (TOC shifts body page numbers).
             pages.Clear();
-            h1PageNumbers.Clear();
+            level1PageNumbers.Clear();
 
-            if (document.IncludeCover)
+            if (document.HasFirstPage)
             {
                 pages.Add(new PageSlice
                 {
@@ -58,28 +56,25 @@ public static class DocumentPaginator
 
             var tocPageCount = EstimateTocPageCount(document, measurer, tocEntries);
             var tocStart = pages.Count + 1;
-            // Temporary TOC pages; body page numbers assume tocPageCount slots.
             bodyStartNumber = tocStart + tocPageCount;
-            bodyPages = PaginateBody(document, measurer, bodyStartNumber, h1PageNumbers);
-            tocEntries = h1PageNumbers
+            bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1PageNumbers);
+            tocEntries = level1PageNumbers
                 .Select(kv => new TocEntry(kv.Key, kv.Value))
                 .OrderBy(e => e.PageNumber)
                 .ThenBy(e => e.Title, StringComparer.Ordinal)
                 .ToList();
 
             pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
-            // Renumber body pages after actual TOC length (should match estimate for v1).
             var actualBodyStart = pages.Count + 1;
             if (actualBodyStart != bodyStartNumber)
             {
-                h1PageNumbers.Clear();
-                bodyPages = PaginateBody(document, measurer, actualBodyStart, h1PageNumbers);
-                tocEntries = h1PageNumbers
+                level1PageNumbers.Clear();
+                bodyPages = PaginateBody(document, measurer, actualBodyStart, level1PageNumbers);
+                tocEntries = level1PageNumbers
                     .Select(kv => new TocEntry(kv.Key, kv.Value))
                     .OrderBy(e => e.PageNumber)
                     .ThenBy(e => e.Title, StringComparer.Ordinal)
                     .ToList();
-                // Rebuild TOC with final numbers (same page count expected).
                 pages.RemoveAll(p => p.Kind == PageKind.Toc);
                 pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
             }
@@ -91,30 +86,9 @@ public static class DocumentPaginator
             pages.AddRange(bodyPages);
         }
 
-        if (document.Last is { Lines.Count: > 0 } last)
-        {
-            var n = pages.Count + 1;
-            var blocks = new List<PlacedBlock>();
-            float y = 0;
-            foreach (var line in last.Lines)
-            {
-                var style = BodyStyle(document.Typography);
-                var h = measurer.MeasureHeight(line, ContentWidth(document), style);
-                blocks.Add(new PlacedBlock(new ParagraphBlock { Text = line }, y, h));
-                y += h + document.Typography.ParagraphSpacingPt;
-            }
+        if (document.Last is { } last && (last.Lines.Count > 0 || last.Blocks.Count > 0 || !string.IsNullOrWhiteSpace(last.Title)))
+            pages.AddRange(BuildLastPages(document, measurer, last, pages.Count + 1));
 
-            pages.Add(new PageSlice
-            {
-                Kind = PageKind.Last,
-                Number = n,
-                Blocks = blocks,
-                ShowHeader = false,
-                ShowFooter = document.Footer is not null,
-            });
-        }
-
-        // Normalize numbers
         for (var i = 0; i < pages.Count; i++)
         {
             var p = pages[i];
@@ -169,7 +143,7 @@ public static class DocumentPaginator
                 ShowHeader = false,
                 ShowFooter = document.Footer is not null,
             });
-            blocks = [];
+            blocks.Clear();
             y = 0;
         }
 
@@ -179,9 +153,7 @@ public static class DocumentPaginator
             var text = $"{entry.Title} …… {entry.PageNumber}";
             var h = measurer.MeasureHeight(text, width, lineStyle);
             if (y + h > contentHeight && blocks.Count > 0)
-            {
                 Flush(pageNumber++);
-            }
 
             blocks.Add(new PlacedBlock(new ParagraphBlock { Text = text }, y, h));
             y += h + document.Typography.ParagraphSpacingPt;
@@ -205,11 +177,11 @@ public static class DocumentPaginator
         return pages;
     }
 
-    static List<PageSlice> PaginateBody(
+    static List<PageSlice> BuildLastPages(
         PagedDocument document,
         ITextMeasurer measurer,
-        int startNumber,
-        Dictionary<string, int> h1PageNumbers)
+        LastPage last,
+        int startNumber)
     {
         var pages = new List<PageSlice>();
         var contentHeight = ContentHeight(document);
@@ -217,9 +189,83 @@ public static class DocumentPaginator
         var blocks = new List<PlacedBlock>();
         float y = 0;
         var pageNumber = startNumber;
-        var pageOpensWithH1 = false;
+        var typography = document.Typography;
 
-        void Flush(bool opensWithH1)
+        void Flush()
+        {
+            if (blocks.Count == 0)
+                return;
+            pages.Add(new PageSlice
+            {
+                Kind = PageKind.Last,
+                Number = pageNumber++,
+                Blocks = blocks.ToList(),
+                ShowHeader = false,
+                ShowFooter = document.Footer is not null,
+            });
+            blocks.Clear();
+            y = 0;
+        }
+
+        if (!string.IsNullOrWhiteSpace(last.Title))
+        {
+            var style = HeadingStyle(typography, 2);
+            var h = measurer.MeasureHeight(last.Title, width, style);
+            blocks.Add(new PlacedBlock(new HeadingBlock { Level = 2, Text = last.Title }, y, h));
+            y += h + typography.AfterHeadingSpacingPt;
+        }
+
+        foreach (var line in last.Lines)
+        {
+            var style = BodyStyle(typography);
+            var h = measurer.MeasureHeight(line, width, style);
+            if (y + h > contentHeight && blocks.Count > 0)
+                Flush();
+            blocks.Add(new PlacedBlock(new ParagraphBlock { Text = line }, y, h));
+            y += h + typography.ParagraphSpacingPt;
+        }
+
+        foreach (var block in last.Blocks)
+        {
+            if (block is TableBlock table)
+            {
+                PlaceTable(table, document, measurer, width, contentHeight, ref y, blocks, Flush);
+                continue;
+            }
+
+            if (block is ParagraphBlock paragraph)
+            {
+                PlaceParagraph(paragraph, document, measurer, width, contentHeight, ref y, blocks, Flush);
+                continue;
+            }
+
+            var height = MeasureBlock(block, document, measurer, width);
+            if (y + height > contentHeight && blocks.Count > 0)
+                Flush();
+            blocks.Add(new PlacedBlock(block, y, height));
+            y += height + typography.ParagraphSpacingPt;
+        }
+
+        Flush();
+        return pages;
+    }
+
+    static List<PageSlice> PaginateBody(
+        PagedDocument document,
+        ITextMeasurer measurer,
+        int startNumber,
+        Dictionary<string, int> level1PageNumbers)
+    {
+        var pages = new List<PageSlice>();
+        var contentHeight = ContentHeight(document);
+        var width = ContentWidth(document);
+        var blocks = new List<PlacedBlock>();
+        float y = 0;
+        var pageNumber = startNumber;
+        var pageOpensWithLevel1 = false;
+        var typography = document.Typography;
+
+        void Flush()
         {
             if (blocks.Count == 0)
                 return;
@@ -229,13 +275,13 @@ public static class DocumentPaginator
                 Number = pageNumber,
                 Blocks = blocks.ToList(),
                 ShowHeader = document.Header is not null
-                    && !(document.SuppressHeaderOnH1Open && opensWithH1),
+                    && !(document.SuppressHeaderOnLevel1Open && pageOpensWithLevel1),
                 ShowFooter = document.Footer is not null,
             });
             pageNumber++;
-            blocks = [];
+            blocks.Clear();
             y = 0;
-            pageOpensWithH1 = false;
+            pageOpensWithLevel1 = false;
         }
 
         foreach (var block in document.Body)
@@ -243,10 +289,10 @@ public static class DocumentPaginator
             switch (block)
             {
                 case PageBreakBlock:
-                    Flush(pageOpensWithH1);
+                    Flush();
                     continue;
                 case BlankPageBlock:
-                    Flush(pageOpensWithH1);
+                    Flush();
                     pages.Add(new PageSlice
                     {
                         Kind = PageKind.Body,
@@ -258,33 +304,197 @@ public static class DocumentPaginator
                     continue;
                 case HeadingBlock { Level: 1 } h1:
                     if (blocks.Count > 0)
-                        Flush(pageOpensWithH1);
-                    pageOpensWithH1 = true;
-                    h1PageNumbers[h1.Text] = pageNumber;
+                        Flush();
+                    pageOpensWithLevel1 = true;
+                    level1PageNumbers[h1.Text] = pageNumber;
                     {
-                        var style = HeadingStyle(document.Typography, 1);
+                        var style = HeadingStyle(typography, 1);
                         var h = measurer.MeasureHeight(h1.Text, width, style);
                         blocks.Add(new PlacedBlock(h1, y, h));
-                        y += h + document.Typography.ParagraphSpacingPt;
+                        y += h + typography.AfterLevel1SpacingPt;
                     }
                     continue;
                 case CoverBlock or TocBlock:
                     continue;
+                case ParagraphBlock paragraph:
+                    PlaceParagraph(paragraph, document, measurer, width, contentHeight,
+                        ref y, blocks, Flush);
+                    continue;
+                case TableBlock table:
+                    PlaceTable(table, document, measurer, width, contentHeight,
+                        ref y, blocks, Flush);
+                    continue;
+                case HeadingBlock heading:
+                {
+                    var height = MeasureBlock(heading, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(heading, y, height));
+                    y += height + (heading.Level == 1
+                        ? typography.AfterLevel1SpacingPt
+                        : typography.AfterHeadingSpacingPt);
+                    continue;
+                }
             }
 
-            var height = MeasureBlock(block, document, measurer, width);
-            if (y + height > contentHeight && blocks.Count > 0)
-                Flush(pageOpensWithH1);
+            var blockHeight = MeasureBlock(block, document, measurer, width);
+            if (y + blockHeight > contentHeight && blocks.Count > 0)
+                Flush();
 
-            if (blocks.Count == 0 && block is HeadingBlock { Level: 1 })
-                pageOpensWithH1 = true;
-
-            blocks.Add(new PlacedBlock(block, y, height));
-            y += height + document.Typography.ParagraphSpacingPt;
+            blocks.Add(new PlacedBlock(block, y, blockHeight));
+            y += blockHeight + typography.ParagraphSpacingPt;
         }
 
-        Flush(pageOpensWithH1);
+        Flush();
         return pages;
+    }
+
+    static void PlaceParagraph(
+        ParagraphBlock paragraph,
+        PagedDocument document,
+        ITextMeasurer measurer,
+        float width,
+        float contentHeight,
+        ref float y,
+        List<PlacedBlock> blocks,
+        Action flush)
+    {
+        var style = BodyStyle(document.Typography);
+        var lines = measurer.WrapLines(paragraph.Text, width, style);
+        if (lines.Count == 0)
+            lines = [string.Empty];
+
+        var lineStep = System.Math.Max(1f, style.FontSizePt * style.LineHeight);
+        var spacing = document.Typography.ParagraphSpacingPt;
+        var index = 0;
+
+        while (index < lines.Count)
+        {
+            if (y + lineStep > contentHeight && blocks.Count > 0)
+                flush();
+
+            var remaining = System.Math.Max(lineStep, contentHeight - y);
+            var maxLines = System.Math.Max(1, (int)(remaining / lineStep));
+            var take = System.Math.Min(maxLines, lines.Count - index);
+            if (take <= 0)
+                take = 1;
+
+            var slice = lines.Skip(index).Take(take).ToArray();
+            var chunk = slice.Length == 1
+                ? slice[0]
+                : string.Join(' ', slice.Where(static l => l.Length > 0));
+
+            var height = System.Math.Max(style.FontSizePt, take * lineStep);
+            blocks.Add(new PlacedBlock(new ParagraphBlock { Text = chunk }, y, height));
+            y += height + spacing;
+            index += take;
+
+            if (index < lines.Count)
+                flush();
+        }
+    }
+
+    static void PlaceTable(
+        TableBlock table,
+        PagedDocument document,
+        ITextMeasurer measurer,
+        float width,
+        float contentHeight,
+        ref float y,
+        List<PlacedBlock> blocks,
+        Action flush)
+    {
+        var columns = ColumnCount(table);
+        if (columns == 0)
+            return;
+
+        var typography = document.Typography;
+        var padding = typography.TableCellPaddingPt;
+        var style = TableStyle(typography);
+        var colWidth = width / columns;
+        var textWidth = System.Math.Max(8f, colWidth - padding * 2f);
+        var showHeader = table.ShowHeader && table.Headers.Count > 0;
+        var headerHeight = showHeader
+            ? MeasureTableRow(table.Headers, columns, textWidth, padding, style, measurer)
+            : 0f;
+
+        var rowIndex = 0;
+        var isFirstSlice = true;
+        while (rowIndex < table.Rows.Count || (isFirstSlice && showHeader && table.Rows.Count == 0))
+        {
+            var includeHeader = showHeader && (isFirstSlice || table.RepeatHeaderOnPageBreak);
+            var used = includeHeader ? headerHeight : 0f;
+            if (y + used + typography.ParagraphSpacingPt > contentHeight && blocks.Count > 0)
+            {
+                flush();
+                includeHeader = showHeader && table.RepeatHeaderOnPageBreak;
+                used = includeHeader ? headerHeight : 0f;
+            }
+
+            var sliceRows = new List<IReadOnlyList<string>>();
+            while (rowIndex < table.Rows.Count)
+            {
+                var rowH = MeasureTableRow(table.Rows[rowIndex], columns, textWidth, padding, style, measurer);
+                if (used + rowH > contentHeight - y && sliceRows.Count > 0)
+                    break;
+                if (used + rowH > contentHeight - y && sliceRows.Count == 0 && blocks.Count > 0)
+                {
+                    flush();
+                    includeHeader = showHeader && table.RepeatHeaderOnPageBreak;
+                    used = includeHeader ? headerHeight : 0f;
+                    continue;
+                }
+
+                sliceRows.Add(table.Rows[rowIndex]);
+                used += rowH;
+                rowIndex++;
+            }
+
+            var slice = new TableBlock
+            {
+                Headers = includeHeader ? table.Headers : [],
+                Rows = sliceRows,
+                ShowHeader = includeHeader,
+                DrawRules = table.DrawRules,
+                RepeatHeaderOnPageBreak = table.RepeatHeaderOnPageBreak,
+            };
+            blocks.Add(new PlacedBlock(slice, y, used));
+            y += used + typography.ParagraphSpacingPt;
+            isFirstSlice = false;
+
+            if (rowIndex < table.Rows.Count)
+                flush();
+            else
+                break;
+        }
+    }
+
+    static int ColumnCount(TableBlock table)
+    {
+        var n = table.Headers.Count;
+        foreach (var row in table.Rows)
+            n = System.Math.Max(n, row.Count);
+        return n;
+    }
+
+    static float MeasureTableRow(
+        IReadOnlyList<string> cells,
+        int columns,
+        float textWidth,
+        float padding,
+        TextStyle style,
+        ITextMeasurer measurer)
+    {
+        float max = style.FontSizePt * style.LineHeight;
+        for (var c = 0; c < columns; c++)
+        {
+            var text = c < cells.Count ? cells[c] : string.Empty;
+            var h = measurer.MeasureHeight(text, textWidth, style);
+            if (h > max)
+                max = h;
+        }
+
+        return max + padding * 2f;
     }
 
     static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
@@ -293,10 +503,27 @@ public static class DocumentPaginator
         {
             HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(document.Typography, h.Level)),
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
+            TableBlock t => MeasureTable(t, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,
                 new TextStyle(document.Typography.BodyFontFamily, document.Typography.SceneBreakSizePt, 1f)),
             _ => document.Typography.ParagraphSpacingPt,
         };
+    }
+
+    static float MeasureTable(TableBlock table, PagedDocument document, ITextMeasurer measurer, float width)
+    {
+        var columns = ColumnCount(table);
+        if (columns == 0)
+            return 0f;
+        var padding = document.Typography.TableCellPaddingPt;
+        var style = TableStyle(document.Typography);
+        var textWidth = System.Math.Max(8f, width / columns - padding * 2f);
+        float total = 0f;
+        if (table.ShowHeader && table.Headers.Count > 0)
+            total += MeasureTableRow(table.Headers, columns, textWidth, padding, style, measurer);
+        foreach (var row in table.Rows)
+            total += MeasureTableRow(row, columns, textWidth, padding, style, measurer);
+        return total;
     }
 
     static float ContentWidth(PagedDocument document) =>
@@ -310,6 +537,9 @@ public static class DocumentPaginator
 
     static TextStyle BodyStyle(Typography t) =>
         new(t.BodyFontFamily, t.BodyFontSizePt, t.LineHeight);
+
+    static TextStyle TableStyle(Typography t) =>
+        new(t.BodyFontFamily, t.EffectiveTableFontSizePt, t.LineHeight);
 
     static TextStyle HeadingStyle(Typography t, int level) =>
         level switch

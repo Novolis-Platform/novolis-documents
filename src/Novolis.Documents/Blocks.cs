@@ -1,28 +1,28 @@
 namespace Novolis.Documents;
 
-/// <summary>Cover page content (first page).</summary>
+/// <summary>Cover page marker (first page). Prefer <see cref="PagedDocument.First"/> / <see cref="PagedDocument.IncludeCover"/>.</summary>
 public sealed class CoverBlock : IBlock
 {
-    /// <summary>Cover uses <see cref="DocumentMeta"/> from the document; this marker is optional in Body.</summary>
+    /// <summary>Marker only; title-page content comes from <see cref="DocumentMeta"/> / <see cref="FirstPage"/>.</summary>
     public bool Present { get; init; } = true;
 }
 
-/// <summary>Table of contents placeholder; entries are filled by layout from H1 titles.</summary>
+/// <summary>Contents-page placeholder; entries are filled by layout from level-1 headings.</summary>
 public sealed class TocBlock : IBlock
 {
-    /// <summary>Optional pre-supplied entries; when empty, layout collects H1 headings.</summary>
+    /// <summary>Optional pre-supplied entries; when empty, layout collects level-1 headings.</summary>
     public IReadOnlyList<TocEntry> Entries { get; init; } = [];
 }
 
-/// <summary>One TOC line.</summary>
+/// <summary>One contents line.</summary>
 /// <param name="Title">Heading title.</param>
 /// <param name="PageNumber">1-based page number within the finished plan (0 until layout fills).</param>
 public sealed record TocEntry(string Title, int PageNumber = 0);
 
-/// <summary>Heading levels 1–3. H1 forces a page break when prior content exists.</summary>
+/// <summary>Heading levels 1–3. Level 1 forces a page break when prior content exists.</summary>
 public sealed class HeadingBlock : IBlock
 {
-    /// <summary>1 = H1, 2 = H2, 3 = H3.</summary>
+    /// <summary>1 = top-level section, 2 = subsection, 3 = sub-subsection.</summary>
     public required int Level { get; init; }
 
     /// <summary>Heading text.</summary>
@@ -34,6 +34,25 @@ public sealed class ParagraphBlock : IBlock
 {
     /// <summary>Paragraph text.</summary>
     public required string Text { get; init; }
+}
+
+/// <summary>Simple grid table (string cells).</summary>
+public sealed class TableBlock : IBlock
+{
+    /// <summary>Header cell texts (optional).</summary>
+    public IReadOnlyList<string> Headers { get; init; } = [];
+
+    /// <summary>Body rows; each row is a sequence of cell texts.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> Rows { get; init; } = [];
+
+    /// <summary>When true and <see cref="Headers"/> is non-empty, draw a header row.</summary>
+    public bool ShowHeader { get; init; } = true;
+
+    /// <summary>When true, stroke cell rules.</summary>
+    public bool DrawRules { get; init; } = true;
+
+    /// <summary>Repeat header row when the table breaks across pages.</summary>
+    public bool RepeatHeaderOnPageBreak { get; init; } = true;
 }
 
 /// <summary>Centered scene-break ornament.</summary>

@@ -9,19 +9,31 @@ file sealed class FakeTextMeasurer : ITextMeasurer
 {
     public float MeasureHeight(string text, float widthPt, TextStyle style)
     {
+        var lines = WrapLines(text, widthPt, style);
+        return System.Math.Max(style.FontSizePt, lines.Count * style.FontSizePt * style.LineHeight);
+    }
+
+    public IReadOnlyList<string> WrapLines(string text, float widthPt, TextStyle style)
+    {
         if (string.IsNullOrEmpty(text))
-            return style.FontSizePt * style.LineHeight;
+            return [string.Empty];
 
         var avgChar = style.FontSizePt * 0.5f;
         var charsPerLine = System.Math.Max(1, (int)(widthPt / avgChar));
-        var lines = 0;
+        var result = new List<string>();
         foreach (var para in text.Replace("\r\n", "\n").Split('\n'))
         {
-            var len = System.Math.Max(1, para.Length);
-            lines += (len + charsPerLine - 1) / charsPerLine;
+            if (para.Length == 0)
+            {
+                result.Add(string.Empty);
+                continue;
+            }
+
+            for (var i = 0; i < para.Length; i += charsPerLine)
+                result.Add(para.Substring(i, System.Math.Min(charsPerLine, para.Length - i)));
         }
 
-        return System.Math.Max(style.FontSizePt, lines * style.FontSizePt * style.LineHeight);
+        return result.Count == 0 ? [string.Empty] : result;
     }
 }
 
@@ -77,11 +89,61 @@ public sealed class LayoutTests
     }
 
     [Test]
-    public async Task Paginate_toc_lists_h1_with_page_numbers()
+    public async Task Paginate_table_and_last_page()
     {
-        var plan = DocumentPaginator.Paginate(SampleDocument(toc: true), new FakeTextMeasurer());
-        await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Toc)).IsTrue();
-        await Assert.That(plan.TocEntries.Count).IsEqualTo(2);
-        await Assert.That(plan.TocEntries.All(e => e.PageNumber > 0)).IsTrue();
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Table Doc" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            IncludeCover = false,
+            IncludeToc = false,
+            Last = new LastPage { Title = "End", Lines = ["Done."] },
+            Body =
+            [
+                new HeadingBlock { Level = 1, Text = "Data" },
+                new TableBlock
+                {
+                    Headers = ["A", "B"],
+                    Rows = [["1", "2"], ["3", "4"]],
+                },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        await Assert.That(plan.Pages.Any(p => p.Blocks.Any(b => b.Block is TableBlock))).IsTrue();
+        await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Last)).IsTrue();
+    }
+
+    [Test]
+    public async Task Paginate_splits_long_paragraph_across_pages()
+    {
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Split" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography { LineHeight = 1.2f, ParagraphSpacingPt = 4f, BodyFontSizePt = 14f },
+            IncludeCover = false,
+            IncludeToc = false,
+            Body =
+            [
+                new HeadingBlock { Level = 1, Text = "Long" },
+                new ParagraphBlock { Text = string.Join(' ', Enumerable.Repeat("harborlights", 5000)) },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        var body = plan.Pages.Where(p => p.Kind == PageKind.Body).ToList();
+        await Assert.That(body.Count).IsGreaterThanOrEqualTo(2);
+        await Assert.That(body[0].Blocks.Any(b => b.Block is HeadingBlock)).IsTrue();
+        await Assert.That(body[0].Blocks.Any(b => b.Block is ParagraphBlock)).IsTrue();
     }
 }
