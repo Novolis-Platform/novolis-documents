@@ -7,7 +7,7 @@ public enum WatermarkPages
     /// <summary>No pages.</summary>
     None = 0,
 
-    /// <summary>Opening / title page.</summary>
+    /// <summary>Opening / title page(s).</summary>
     First = 1,
 
     /// <summary>Table-of-contents pages.</summary>
@@ -16,7 +16,7 @@ public enum WatermarkPages
     /// <summary>Main content pages.</summary>
     Body = 4,
 
-    /// <summary>Closing page.</summary>
+    /// <summary>Closing page(s).</summary>
     Last = 8,
 
     /// <summary>Every page.</summary>

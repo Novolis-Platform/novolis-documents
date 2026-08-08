@@ -33,12 +33,7 @@ var document = Document.Create("Sample")
     .Page(p => p
         .Trade6x9()
         .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
-        .Footer(f => f
-            .Template("{page} / {pages}")
-            .IncludeFirstPage()
-            .IncludeToc()
-            .IncludeBody()
-            .IncludeLastPage()))
+        .Footer(f => f.Template("{page} / {pages}").IncludeBody()))
     .Watermark(w => w.Text("DRAFT").Color(DocumentColor.Red).Opacity(0.12f))
     .Body(b => b
         .First(f => f.Lines("Trade sample"))

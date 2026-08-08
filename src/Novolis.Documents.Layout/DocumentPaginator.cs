@@ -16,17 +16,7 @@ public static class DocumentPaginator
         var level1PageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
 
         if (document.HasFirstPage)
-        {
-            var (showHeader, showFooter) = ResolveBands(document, PageKind.Cover);
-            pages.Add(new PageSlice
-            {
-                Kind = PageKind.Cover,
-                Number = 1,
-                Blocks = [new PlacedBlock(new CoverBlock(), 0, 0)],
-                ShowHeader = showHeader,
-                ShowFooter = showFooter,
-            });
-        }
+            pages.AddRange(BuildFirstPages(document, measurer, startNumber: 1));
 
         var bodyStartNumber = pages.Count + 1;
         var bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1PageNumbers);
@@ -44,17 +34,7 @@ public static class DocumentPaginator
             level1PageNumbers.Clear();
 
             if (document.HasFirstPage)
-            {
-                var (showHeader, showFooter) = ResolveBands(document, PageKind.Cover);
-                pages.Add(new PageSlice
-                {
-                    Kind = PageKind.Cover,
-                    Number = 1,
-                    Blocks = [new PlacedBlock(new CoverBlock(), 0, 0)],
-                    ShowHeader = showHeader,
-                    ShowFooter = showFooter,
-                });
-            }
+                pages.AddRange(BuildFirstPages(document, measurer, startNumber: 1));
 
             var tocPageCount = EstimateTocPageCount(document, measurer, tocEntries);
             var tocStart = pages.Count + 1;
@@ -182,10 +162,66 @@ public static class DocumentPaginator
         return pages;
     }
 
+    static List<PageSlice> BuildFirstPages(PagedDocument document, ITextMeasurer measurer, int startNumber)
+    {
+        var meta = document.Meta;
+        var first = document.First;
+        var flow = new List<IBlock>
+        {
+            new HeadingBlock { Level = 1, Text = first?.Title ?? meta.Title },
+        };
+
+        void AddLine(string? text)
+        {
+            if (!string.IsNullOrWhiteSpace(text))
+                flow.Add(new ParagraphBlock { Text = text });
+        }
+
+        AddLine(first?.Subtitle ?? meta.Subtitle);
+        AddLine(first?.Series ?? meta.Series);
+        AddLine(first?.Author ?? meta.Author);
+        AddLine(meta.Contributors);
+        AddLine(meta.Publisher);
+        if (meta.Date is { } date)
+            AddLine(date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        if (!string.IsNullOrWhiteSpace(meta.Version))
+            AddLine($"Version {meta.Version}");
+        AddLine(meta.Identifier);
+        AddLine(first?.Rights ?? meta.Rights);
+
+        if (first is not null)
+        {
+            foreach (var line in first.Lines)
+                AddLine(line);
+            flow.AddRange(first.Blocks);
+        }
+
+        return PaginateRegion(document, measurer, flow, PageKind.Cover, startNumber);
+    }
+
     static List<PageSlice> BuildLastPages(
         PagedDocument document,
         ITextMeasurer measurer,
         LastPage last,
+        int startNumber)
+    {
+        var flow = new List<IBlock>();
+        if (!string.IsNullOrWhiteSpace(last.Title))
+            flow.Add(new HeadingBlock { Level = 2, Text = last.Title });
+        foreach (var line in last.Lines)
+            flow.Add(new ParagraphBlock { Text = line });
+        flow.AddRange(last.Blocks);
+        return PaginateRegion(document, measurer, flow, PageKind.Last, startNumber);
+    }
+
+    /// <summary>
+    /// Paginates First/Last (or similar) flow. One page when content fits; continues when it overflows.
+    /// </summary>
+    static List<PageSlice> PaginateRegion(
+        PagedDocument document,
+        ITextMeasurer measurer,
+        IReadOnlyList<IBlock> flow,
+        PageKind kind,
         int startNumber)
     {
         var pages = new List<PageSlice>();
@@ -200,10 +236,10 @@ public static class DocumentPaginator
         {
             if (blocks.Count == 0)
                 return;
-            var (showHeader, showFooter) = ResolveBands(document, PageKind.Last);
+            var (showHeader, showFooter) = ResolveBands(document, kind);
             pages.Add(new PageSlice
             {
-                Kind = PageKind.Last,
+                Kind = kind,
                 Number = pageNumber++,
                 Blocks = blocks.ToList(),
                 ShowHeader = showHeader,
@@ -213,46 +249,76 @@ public static class DocumentPaginator
             y = 0;
         }
 
-        if (!string.IsNullOrWhiteSpace(last.Title))
+        foreach (var block in flow)
         {
-            var style = HeadingStyle(typography, 2);
-            var h = measurer.MeasureHeight(last.Title, width, style);
-            blocks.Add(new PlacedBlock(new HeadingBlock { Level = 2, Text = last.Title }, y, h));
-            y += h + typography.AfterHeadingSpacingPt;
-        }
-
-        foreach (var line in last.Lines)
-        {
-            var style = BodyStyle(typography);
-            var h = measurer.MeasureHeight(line, width, style);
-            if (y + h > contentHeight && blocks.Count > 0)
-                Flush();
-            blocks.Add(new PlacedBlock(new ParagraphBlock { Text = line }, y, h));
-            y += h + typography.ParagraphSpacingPt;
-        }
-
-        foreach (var block in last.Blocks)
-        {
-            if (block is TableBlock table)
+            switch (block)
             {
-                PlaceTable(table, document, measurer, width, contentHeight, ref y, blocks, Flush);
-                continue;
+                case PageBreakBlock:
+                    Flush();
+                    continue;
+                case LineBreakBlock lineBreak:
+                {
+                    var height = MeasureBlock(lineBreak, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(lineBreak, y, height));
+                    y += height;
+                    continue;
+                }
+                case BlankPageBlock:
+                    Flush();
+                    {
+                        var (showHeader, showFooter) = ResolveBands(document, kind);
+                        pages.Add(new PageSlice
+                        {
+                            Kind = kind,
+                            Number = pageNumber++,
+                            Blocks = [],
+                            ShowHeader = showHeader,
+                            ShowFooter = showFooter,
+                        });
+                    }
+                    continue;
+                case ParagraphBlock paragraph:
+                    PlaceParagraph(paragraph, document, measurer, width, contentHeight, ref y, blocks, Flush);
+                    continue;
+                case TableBlock table:
+                    PlaceTable(table, document, measurer, width, contentHeight, ref y, blocks, Flush);
+                    continue;
+                case HeadingBlock heading:
+                {
+                    var height = MeasureBlock(heading, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(heading, y, height));
+                    y += height + (heading.Level == 1
+                        ? typography.AfterLevel1SpacingPt
+                        : typography.AfterHeadingSpacingPt);
+                    continue;
+                }
             }
 
-            if (block is ParagraphBlock paragraph)
-            {
-                PlaceParagraph(paragraph, document, measurer, width, contentHeight, ref y, blocks, Flush);
-                continue;
-            }
-
-            var height = MeasureBlock(block, document, measurer, width);
-            if (y + height > contentHeight && blocks.Count > 0)
+            var blockHeight = MeasureBlock(block, document, measurer, width);
+            if (y + blockHeight > contentHeight && blocks.Count > 0)
                 Flush();
-            blocks.Add(new PlacedBlock(block, y, height));
-            y += height + typography.ParagraphSpacingPt;
+            blocks.Add(new PlacedBlock(block, y, blockHeight));
+            y += blockHeight + typography.ParagraphSpacingPt;
         }
 
         Flush();
+        if (pages.Count == 0)
+        {
+            var (showHeader, showFooter) = ResolveBands(document, kind);
+            pages.Add(new PageSlice
+            {
+                Kind = kind,
+                Number = startNumber,
+                Blocks = [],
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
+            });
+        }
+
         return pages;
     }
 
@@ -297,6 +363,15 @@ public static class DocumentPaginator
                 case PageBreakBlock:
                     Flush();
                     continue;
+                case LineBreakBlock lineBreak:
+                {
+                    var height = MeasureBlock(lineBreak, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(lineBreak, y, height));
+                    y += height;
+                    continue;
+                }
                 case BlankPageBlock:
                     Flush();
                     {
@@ -446,15 +521,20 @@ public static class DocumentPaginator
             : 0f;
 
         var rowIndex = 0;
-        var isFirstSlice = true;
-        while (rowIndex < table.Rows.Count || (isFirstSlice && showHeader && table.Rows.Count == 0))
+        var placedAnySlice = false;
+        while (rowIndex < table.Rows.Count || (!placedAnySlice && showHeader && table.Rows.Count == 0))
         {
-            var includeHeader = showHeader && (isFirstSlice || table.RepeatHeaderOnPageBreak);
+            // Keep the header on the first emitted slice even when we had to flush
+            // leftover page content before the table could start.
+            bool IncludeHeader() =>
+                showHeader && (!placedAnySlice || table.RepeatHeaderOnPageBreak);
+
+            var includeHeader = IncludeHeader();
             var used = includeHeader ? headerHeight : 0f;
-            if (y + used + typography.ParagraphSpacingPt > contentHeight && blocks.Count > 0)
+            if (y + used > contentHeight && blocks.Count > 0)
             {
                 flush();
-                includeHeader = showHeader && table.RepeatHeaderOnPageBreak;
+                includeHeader = IncludeHeader();
                 used = includeHeader ? headerHeight : 0f;
             }
 
@@ -462,19 +542,46 @@ public static class DocumentPaginator
             while (rowIndex < table.Rows.Count)
             {
                 var rowH = MeasureTableRow(table.Rows[rowIndex], columns, colWidths, padding, style, measurer);
-                if (used + rowH > contentHeight - y && sliceRows.Count > 0)
+                var remaining = contentHeight - y;
+                if (used + rowH > remaining && sliceRows.Count > 0)
                     break;
-                if (used + rowH > contentHeight - y && sliceRows.Count == 0 && blocks.Count > 0)
+
+                if (used + rowH > remaining && sliceRows.Count == 0)
                 {
-                    flush();
-                    includeHeader = showHeader && table.RepeatHeaderOnPageBreak;
-                    used = includeHeader ? headerHeight : 0f;
-                    continue;
+                    // Header (optional) fits alone but the next row does not — move on
+                    // when there is prior content; otherwise accept an oversized row so
+                    // pagination cannot stall.
+                    if (blocks.Count > 0)
+                    {
+                        flush();
+                        includeHeader = IncludeHeader();
+                        used = includeHeader ? headerHeight : 0f;
+                        continue;
+                    }
+
+                    sliceRows.Add(table.Rows[rowIndex]);
+                    used += rowH;
+                    rowIndex++;
+                    break;
                 }
 
                 sliceRows.Add(table.Rows[rowIndex]);
                 used += rowH;
                 rowIndex++;
+            }
+
+            // Header-only slice when the table has no body rows.
+            if (sliceRows.Count == 0 && !(includeHeader && table.Rows.Count == 0))
+            {
+                if (blocks.Count > 0)
+                {
+                    flush();
+                    continue;
+                }
+
+                // Empty page but nothing fits (degenerate header taller than page): emit header alone.
+                if (!includeHeader)
+                    break;
             }
 
             var slice = new TableBlock
@@ -490,7 +597,7 @@ public static class DocumentPaginator
             };
             blocks.Add(new PlacedBlock(slice, y, used));
             y += used + typography.ParagraphSpacingPt;
-            isFirstSlice = false;
+            placedAnySlice = true;
 
             if (rowIndex < table.Rows.Count)
                 flush();
@@ -569,6 +676,8 @@ public static class DocumentPaginator
             ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,
                 new TextStyle(document.Typography.BodyFontFamily, document.Typography.SceneBreakSizePt, 1f)),
+            LineBreakBlock => document.Typography.BodyFontSizePt * document.Typography.LineHeight,
+            PageBreakBlock or BlankPageBlock => 0f,
             _ => document.Typography.ParagraphSpacingPt,
         };
     }

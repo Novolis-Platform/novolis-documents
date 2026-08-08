@@ -116,7 +116,10 @@ public sealed class DocumentContentBuilder
         return Add(new SceneBreakBlock { Ornament = ornament });
     }
 
-    /// <summary>Explicit page break.</summary>
+    /// <summary>Forced line break (one blank body line). Prefer <c>\n</c> inside <see cref="Paragraph"/> for soft wraps.</summary>
+    public DocumentContentBuilder LineBreak() => Add(new LineBreakBlock());
+
+    /// <summary>Explicit page break (continues the body on a new page).</summary>
     public DocumentContentBuilder PageBreak() => Add(new PageBreakBlock());
 
     /// <summary>Blank page.</summary>

@@ -8,10 +8,12 @@ Both `Header` and `Footer` use the same include model (defaults differ):
 
 | Flag | Page kind | Header default | Footer default |
 | --- | --- | --- | --- |
-| `IncludeFirstPage` | Opening / title (`PageKind.Cover`) | off | on |
-| `IncludeToc` | TOC pages | off | on |
+| `IncludeFirstPage` | Opening / title (`PageKind.Cover`, including overflow First pages) | off | off |
+| `IncludeToc` | TOC pages | off | off |
 | `IncludeBody` | Main flow | on | on |
-| `IncludeLastPage` | Closing page | off | on |
+| `IncludeLastPage` | Closing (`PageKind.Last`, including overflow Last pages) | off | off |
+
+Header and footer share the same include defaults: **Body only**. First and Last are normally one page each; if content overflows, extra First/Last pages still use these include flags (no separate “multipage” switch).
 
 Fluent builders mirror these names:
 
@@ -22,16 +24,14 @@ Fluent builders mirror these names:
     .UseChapterTitle())
 .Footer(f => f
     .Template("{page} / {pages}")
-    .IncludeFirstPage()
-    .IncludeToc()
-    .IncludeBody()
-    .IncludeLastPage())
+    .IncludeBody())
+// Opt in: .IncludeFirstPage().IncludeToc().IncludeLastPage()
 ```
 
 Shortcuts on `DocumentPageBuilder`:
 
 - `.Header("{title}")` → template + body only  
-- `.Footer("{page} / {pages}")` → template + First + Toc + Body + Last  
+- `.Footer("{page} / {pages}")` → template + body only  
 
 ## Templates
 
@@ -97,7 +97,7 @@ Diagonal text painted **under** content (after white clear, before blocks).
 | `RotationDegrees` | `-32` |
 | `Pages` | `WatermarkPages.All` |
 
-`WatermarkPages` is a flags enum: `First`, `Toc`, `Body`, `Last`, `All`.
+`WatermarkPages` is a flags enum: `First`, `Toc`, `Body`, `Last`, `All` (`First`/`Last` cover every page of those regions when they overflow).
 
 Named colors: `DocumentColor.Red`, `.Gray`, `.Black`, plus `FromRgb` / `Parse("#RRGGBB")`.
 

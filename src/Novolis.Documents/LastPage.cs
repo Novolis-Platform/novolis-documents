@@ -1,6 +1,9 @@
 namespace Novolis.Documents;
 
-/// <summary>Optional final page after body flow.</summary>
+/// <summary>
+/// Optional closing section after body flow.
+/// Usually one page; layout continues onto further Last pages when content overflows.
+/// </summary>
 public sealed class LastPage
 {
     /// <summary>Optional title drawn at the top of the last page.</summary>

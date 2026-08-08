@@ -14,6 +14,25 @@ public sealed class DocumentBuilderTests
     }
 
     [Test]
+    public async Task Header_and_footer_string_shortcuts_are_body_only()
+    {
+        var doc = Document.Create("Sample")
+            .Page(p => p.Trade6x9().Header("{title}").Footer("{page} / {pages}"))
+            .Body(b => b.Content(c => c.Paragraph("Hi.")))
+            .Build();
+
+        await Assert.That(doc.Header!.IncludeBody).IsTrue();
+        await Assert.That(doc.Header.IncludeFirstPage).IsFalse();
+        await Assert.That(doc.Header.IncludeLastPage).IsFalse();
+        await Assert.That(doc.Header.IncludeToc).IsFalse();
+
+        await Assert.That(doc.Footer!.IncludeBody).IsTrue();
+        await Assert.That(doc.Footer.IncludeFirstPage).IsFalse();
+        await Assert.That(doc.Footer.IncludeLastPage).IsFalse();
+        await Assert.That(doc.Footer.IncludeToc).IsFalse();
+    }
+
+    [Test]
     public async Task P1_body_spine_assembles_first_content_last()
     {
         var doc = Document.Create("Harbor Notes")
@@ -91,6 +110,8 @@ public sealed class DocumentBuilderTests
                     .Toc()
                     .Chapter("Chapter One", ch => ch
                         .Paragraph("Body.")
+                        .LineBreak()
+                        .PageBreak()
                         .H2("Aside")
                         .Paragraph("More.")))
                 .Last(l => l
@@ -104,9 +125,11 @@ public sealed class DocumentBuilderTests
         await Assert.That(doc.Watermark!.Color).IsEqualTo(DocumentColor.Red);
         await Assert.That(doc.Header!.UseChapterTitle).IsTrue();
         await Assert.That(doc.Footer!.IncludeFirstPage).IsTrue();
-        await Assert.That(doc.Footer.IncludeToc).IsTrue();
         await Assert.That(doc.Footer.IncludeLastPage).IsTrue();
+        await Assert.That(doc.Footer.IncludeToc).IsTrue();
         await Assert.That(doc.IncludeToc).IsTrue();
+        await Assert.That(doc.Body.OfType<LineBreakBlock>().Any()).IsTrue();
+        await Assert.That(doc.Body.OfType<PageBreakBlock>().Any()).IsTrue();
 
         await Assert.That(doc.Body[0]).IsTypeOf<HeadingBlock>();
         var h1 = (HeadingBlock)doc.Body[0];

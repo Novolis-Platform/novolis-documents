@@ -1,6 +1,9 @@
 namespace Novolis.Documents;
 
-/// <summary>Optional opening (title) page before body flow.</summary>
+/// <summary>
+/// Optional opening (title) section before body flow.
+/// Usually one page; layout continues onto further First pages when content overflows.
+/// </summary>
 public sealed class FirstPage
 {
     /// <summary>Title line; falls back to <see cref="DocumentMeta.Title"/>.</summary>
@@ -18,6 +21,9 @@ public sealed class FirstPage
     /// <summary>Rights / imprint line; falls back to <see cref="DocumentMeta.Rights"/>.</summary>
     public string? Rights { get; init; }
 
-    /// <summary>Additional centered lines below the author block.</summary>
+    /// <summary>Additional lines below the title block.</summary>
     public IReadOnlyList<string> Lines { get; init; } = [];
+
+    /// <summary>Optional richer blocks after <see cref="Lines"/> (paragraphs, tables, breaks, etc.).</summary>
+    public IReadOnlyList<IBlock> Blocks { get; init; } = [];
 }

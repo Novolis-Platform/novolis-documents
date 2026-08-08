@@ -12,7 +12,8 @@
 | `ColumnsBlock` | Side-by-side block streams |
 | `ImageBlock` | Raster/SVG bytes or path |
 | `SceneBreakBlock` | Ornamental break between scenes |
-| `PageBreakBlock` | Force a new body page |
+| `LineBreakBlock` | Forced blank body line |
+| `PageBreakBlock` | Force a new page in the current region (Body / First / Last) |
 | `BlankPageBlock` | Emit an intentionally empty page |
 
 Fluent verbs live on `DocumentContentBuilder` / nested builders — see [authoring.md](authoring.md).
@@ -68,6 +69,8 @@ new TableBlock
 | `Rules` | `None`, `Horizontal`, `Grid` |
 | `HeaderBackground` | Light fill behind header row |
 | `RepeatHeaderOnPageBreak` | Re-draw header when the table spans pages |
+
+**Page breaks:** Layout splits tables between rows when they no longer fit the content box. Continuation slices keep column widths/alignments/rules. With `RepeatHeaderOnPageBreak` (default **true**), each continuation redraws the header row. Rows are never split mid-cell.
 
 **Non-goal:** nested blocks inside cells. Cells are strings.
 

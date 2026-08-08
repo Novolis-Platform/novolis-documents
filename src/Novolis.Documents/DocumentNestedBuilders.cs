@@ -275,6 +275,7 @@ public sealed class FirstPageBuilder
     string? _author;
     string? _rights;
     readonly List<string> _lines = [];
+    readonly DocumentContentBuilder _blocks = new();
 
     /// <summary>Title override.</summary>
     public FirstPageBuilder Title(string? title)
@@ -311,11 +312,19 @@ public sealed class FirstPageBuilder
         return this;
     }
 
-    /// <summary>Additional centered lines.</summary>
+    /// <summary>Additional lines below the title block.</summary>
     public FirstPageBuilder Lines(params string[] lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
         _lines.AddRange(lines);
+        return this;
+    }
+
+    /// <summary>Richer blocks after lines (may overflow onto further First pages).</summary>
+    public FirstPageBuilder Blocks(Action<DocumentContentBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(_blocks);
         return this;
     }
 
@@ -328,6 +337,7 @@ public sealed class FirstPageBuilder
         Author = _author,
         Rights = _rights,
         Lines = _lines.ToArray(),
+        Blocks = _blocks.ToBlocks(),
     };
 }
 
@@ -396,7 +406,7 @@ public sealed class HeaderBuilder
         return this;
     }
 
-    /// <summary>Include on the opening / title page.</summary>
+    /// <summary>Include on opening / title page(s).</summary>
     public HeaderBuilder IncludeFirstPage(bool include = true)
     {
         _includeFirstPage = include;
@@ -417,7 +427,7 @@ public sealed class HeaderBuilder
         return this;
     }
 
-    /// <summary>Include on the closing page.</summary>
+    /// <summary>Include on closing page(s).</summary>
     public HeaderBuilder IncludeLastPage(bool include = true)
     {
         _includeLastPage = include;
@@ -452,10 +462,10 @@ public sealed class FooterBuilder
 {
     string _template = string.Empty;
     float _fontSizePt = 9f;
-    bool _includeFirstPage = true;
-    bool _includeToc = true;
+    bool _includeFirstPage;
+    bool _includeToc;
     bool _includeBody = true;
-    bool _includeLastPage = true;
+    bool _includeLastPage;
 
     /// <summary>Footer template.</summary>
     public FooterBuilder Template(string template)
@@ -472,7 +482,7 @@ public sealed class FooterBuilder
         return this;
     }
 
-    /// <summary>Include on the opening / title page.</summary>
+    /// <summary>Include on opening / title page(s).</summary>
     public FooterBuilder IncludeFirstPage(bool include = true)
     {
         _includeFirstPage = include;
@@ -493,7 +503,7 @@ public sealed class FooterBuilder
         return this;
     }
 
-    /// <summary>Include on the closing page.</summary>
+    /// <summary>Include on closing page(s).</summary>
     public FooterBuilder IncludeLastPage(bool include = true)
     {
         _includeLastPage = include;

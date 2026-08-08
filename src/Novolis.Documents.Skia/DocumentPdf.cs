@@ -93,16 +93,11 @@ public static class DocumentPdf
 
         DrawWatermark(canvas, document, page, pageWidth, pageHeight, boldTypeface);
 
-        if (page.Kind == PageKind.Cover)
-            DrawCover(canvas, document, typeface, boldTypeface, pageWidth, pageHeight);
-        else
+        foreach (var placed in page.Blocks)
         {
-            foreach (var placed in page.Blocks)
-            {
-                var y = contentTop + placed.YInContentPt;
-                DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
-                    contentX, y, contentWidth);
-            }
+            var y = contentTop + placed.YInContentPt;
+            DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
+                contentX, y, contentWidth);
         }
 
         if (page.ShowHeader && document.Header is { } header)
@@ -174,93 +169,6 @@ public static class DocumentPdf
         _ => (pages & WatermarkPages.Body) != 0,
     };
 
-    static void DrawCover(
-        SKCanvas canvas,
-        PagedDocument document,
-        SKTypeface typeface,
-        SKTypeface boldTypeface,
-        float pageWidth,
-        float pageHeight)
-    {
-        var first = document.First;
-        var meta = document.Meta;
-        var title = first?.Title ?? meta.Title;
-        var subtitle = first?.Subtitle ?? meta.Subtitle;
-        var series = first?.Series ?? meta.Series;
-        var author = first?.Author ?? meta.Author;
-        var rights = first?.Rights ?? meta.Rights;
-
-        float y = pageHeight * 0.28f;
-        DrawCenteredText(canvas, title, boldTypeface, 22f, 40, y, pageWidth - 80, 40);
-        y += 36;
-        if (!string.IsNullOrWhiteSpace(subtitle))
-        {
-            DrawCenteredText(canvas, subtitle, typeface, 13f, 40, y, pageWidth - 80, 24);
-            y += 28;
-        }
-
-        if (!string.IsNullOrWhiteSpace(series))
-        {
-            DrawCenteredText(canvas, series, typeface, 12f, 40, y, pageWidth - 80, 22);
-            y += 26;
-        }
-
-        if (!string.IsNullOrWhiteSpace(author))
-        {
-            y += 12;
-            DrawCenteredText(canvas, author, typeface, 11f, 40, y, pageWidth - 80, 20);
-            y += 22;
-        }
-
-        if (!string.IsNullOrWhiteSpace(meta.Contributors))
-        {
-            DrawCenteredText(canvas, meta.Contributors, typeface, 10f, 40, y, pageWidth - 80, 18);
-            y += 20;
-        }
-
-        if (!string.IsNullOrWhiteSpace(meta.Publisher))
-        {
-            DrawCenteredText(canvas, meta.Publisher, typeface, 10f, 40, y, pageWidth - 80, 18);
-            y += 20;
-        }
-
-        if (meta.Date is { } date)
-        {
-            DrawCenteredText(canvas, date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-                typeface, 10f, 40, y, pageWidth - 80, 18);
-            y += 20;
-        }
-
-        if (!string.IsNullOrWhiteSpace(meta.Version))
-        {
-            DrawCenteredText(canvas, $"Version {meta.Version}", typeface, 9.5f, 40, y, pageWidth - 80, 18);
-            y += 20;
-        }
-
-        if (first is { Lines.Count: > 0 })
-        {
-            y += 12;
-            foreach (var line in first.Lines)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-                DrawCenteredText(canvas, line, typeface, 10f, 40, y, pageWidth - 80, 18);
-                y += 20;
-            }
-        }
-
-        var footY = pageHeight - 80;
-        if (!string.IsNullOrWhiteSpace(meta.Identifier))
-        {
-            DrawCenteredText(canvas, meta.Identifier, typeface, 8.5f, 40, footY - 18, pageWidth - 80, 16);
-        }
-
-        if (!string.IsNullOrWhiteSpace(rights))
-        {
-            DrawCenteredText(canvas, rights, typeface, 8.5f, 40, footY, pageWidth - 80, 18);
-        }
-    }
-
     static void DrawBlock(
         SKCanvas canvas,
         PagedDocument document,
@@ -300,7 +208,7 @@ public static class DocumentPdf
                 DrawCenteredText(canvas, s.Ornament, typeface, document.Typography.SceneBreakSizePt,
                     x, y, width, document.Typography.SceneBreakSizePt * 1.2f);
                 break;
-            case CoverBlock:
+            case LineBreakBlock or PageBreakBlock or BlankPageBlock or CoverBlock or TocBlock:
                 break;
         }
     }

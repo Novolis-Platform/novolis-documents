@@ -30,8 +30,7 @@ static PagedDocument Map(MySource source) => new()
     Footer = new Footer
     {
         Template = "{page} / {pages}",
-        IncludeBody = true,
-        IncludeLastPage = true,
+        IncludeBody = true, // First / Toc / Last also default off
     },
     IncludeCover = false,
     IncludeToc = false,

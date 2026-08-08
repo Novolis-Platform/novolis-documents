@@ -11,15 +11,15 @@ public sealed class Footer
     /// <summary>Font size in points.</summary>
     public float FontSizePt { get; init; } = 9f;
 
-    /// <summary>Draw on the opening / title page.</summary>
-    public bool IncludeFirstPage { get; init; } = true;
+    /// <summary>Draw on the opening / title page(s).</summary>
+    public bool IncludeFirstPage { get; init; }
 
     /// <summary>Draw on TOC pages.</summary>
-    public bool IncludeToc { get; init; } = true;
+    public bool IncludeToc { get; init; }
 
     /// <summary>Draw on body pages.</summary>
     public bool IncludeBody { get; init; } = true;
 
-    /// <summary>Draw on the closing page.</summary>
-    public bool IncludeLastPage { get; init; } = true;
+    /// <summary>Draw on the closing page(s).</summary>
+    public bool IncludeLastPage { get; init; }
 }

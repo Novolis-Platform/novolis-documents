@@ -26,12 +26,7 @@ var document = Document.Create("Harbor Notes")
     .Page(p => p
         .Trade6x9()
         .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
-        .Footer(f => f
-            .Template("{page} / {pages}")
-            .IncludeFirstPage()
-            .IncludeToc()
-            .IncludeBody()
-            .IncludeLastPage()))
+        .Footer(f => f.Template("{page} / {pages}").IncludeBody()))
     .Body(b => b
         .First(f => f.Lines("Trade sample"))
         .Content(c => c
@@ -70,9 +65,7 @@ var document = new PagedDocument
     Footer = new Footer
     {
         Template = "{page}",
-        IncludeFirstPage = true,
-        IncludeBody = true,
-        IncludeLastPage = true,
+        IncludeBody = true, // First / Toc / Last default off (same as Header)
     },
     First = new FirstPage { Lines = ["Sample"] },
     Body =

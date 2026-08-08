@@ -71,7 +71,40 @@ public sealed class LayoutTests
     };
 
     [Test]
-    public async Task Paginate_cover_defaults_to_footer_only_and_body_has_footer()
+    public async Task Paginate_header_and_footer_default_to_body_only()
+    {
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Defaults" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            IncludeCover = true,
+            IncludeToc = true,
+            Header = new Header { Template = "{title}" },
+            Footer = new Footer { Template = "{page}" },
+            Last = new LastPage { Title = "End", Lines = ["Done."] },
+            Body =
+            [
+                new HeadingBlock { Level = 1, Text = "One" },
+                new ParagraphBlock { Text = "Body." },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        await Assert.That(plan.Pages[0].Kind).IsEqualTo(PageKind.Cover);
+        await Assert.That(plan.Pages[0].ShowHeader).IsFalse();
+        await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
+        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Toc).All(p => !p.ShowHeader && !p.ShowFooter)).IsTrue();
+        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Body).All(p => p.ShowHeader && p.ShowFooter)).IsTrue();
+        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Last).All(p => !p.ShowHeader && !p.ShowFooter)).IsTrue();
+    }
+
+    [Test]
+    public async Task Paginate_cover_can_opt_into_footer()
     {
         var plan = DocumentPaginator.Paginate(SampleDocument(toc: false), new FakeTextMeasurer());
         await Assert.That(plan.Pages.Count).IsGreaterThanOrEqualTo(3);
@@ -151,6 +184,31 @@ public sealed class LayoutTests
     }
 
     [Test]
+    public async Task Paginate_first_and_last_overflow_onto_extra_pages()
+    {
+        var manyLines = Enumerable.Range(1, 80).Select(i => $"Line {i}").ToArray();
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Overflow" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            IncludeCover = true,
+            IncludeToc = false,
+            First = new FirstPage { Lines = manyLines },
+            Last = new LastPage { Title = "End", Lines = manyLines },
+            Body = [new ParagraphBlock { Text = "Body." }],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        await Assert.That(plan.Pages.Count(p => p.Kind == PageKind.Cover)).IsGreaterThan(1);
+        await Assert.That(plan.Pages.Count(p => p.Kind == PageKind.Last)).IsGreaterThan(1);
+    }
+
+    [Test]
     public async Task Paginate_table_and_last_page()
     {
         var doc = new PagedDocument
@@ -179,5 +237,109 @@ public sealed class LayoutTests
         var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
         await Assert.That(plan.Pages.Any(p => p.Blocks.Any(b => b.Block is TableBlock))).IsTrue();
         await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Last)).IsTrue();
+    }
+
+    [Test]
+    public async Task Paginate_long_table_breaks_across_pages_and_repeats_header()
+    {
+        var rows = Enumerable.Range(1, 60)
+            .Select(i => (IReadOnlyList<string>)[$"{i}", $"Cargo {i}", $"{i * 3}"])
+            .ToArray();
+
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Manifest" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography
+            {
+                TableFontSizePt = 10f,
+                LineHeight = 1.2f,
+                TableCellPaddingPt = 3f,
+            },
+            IncludeCover = false,
+            IncludeToc = false,
+            Body =
+            [
+                new HeadingBlock { Level = 1, Text = "Bonded lines" },
+                new ParagraphBlock { Text = string.Join(' ', Enumerable.Repeat("lead-in", 40)) },
+                new TableBlock
+                {
+                    Headers = ["#", "Item", "Qty"],
+                    Rows = rows,
+                    RuleStyle = TableRuleStyle.Horizontal,
+                    HeaderBackground = true,
+                    RepeatHeaderOnPageBreak = true,
+                },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        var slices = plan.Pages
+            .SelectMany(p => p.Blocks.Select(b => (p.Number, Table: b.Block as TableBlock)))
+            .Where(x => x.Table is not null)
+            .Select(x => (x.Number, Table: x.Table!))
+            .ToList();
+
+        await Assert.That(slices.Count).IsGreaterThanOrEqualTo(2);
+
+        var totalRows = slices.Sum(s => s.Table.Rows.Count);
+        await Assert.That(totalRows).IsEqualTo(60);
+
+        await Assert.That(slices[0].Table.ShowHeader).IsTrue();
+        await Assert.That(slices[0].Table.Headers).IsEquivalentTo(["#", "Item", "Qty"]);
+        await Assert.That(slices.Skip(1).All(s => s.Table.ShowHeader)).IsTrue();
+        await Assert.That(slices.Skip(1).All(s => s.Table.Headers.SequenceEqual(["#", "Item", "Qty"]))).IsTrue();
+
+        // Row order preserved across breaks.
+        var flattened = slices.SelectMany(s => s.Table.Rows.Select(r => r[0])).ToList();
+        await Assert.That(flattened).IsEquivalentTo(Enumerable.Range(1, 60).Select(i => i.ToString()).ToList());
+    }
+
+    [Test]
+    public async Task Paginate_table_keeps_header_on_first_slice_after_page_flush()
+    {
+        // Fill most of the first body page, then a table that must start on the next page.
+        // RepeatHeaderOnPageBreak=false must still show the header on that first table page.
+        var filler = string.Join(' ', Enumerable.Repeat("pad", 400));
+        var rows = Enumerable.Range(1, 8)
+            .Select(i => (IReadOnlyList<string>)[$"{i}", $"R{i}"])
+            .ToArray();
+
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Flush" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            IncludeCover = false,
+            IncludeToc = false,
+            Body =
+            [
+                new ParagraphBlock { Text = filler },
+                new TableBlock
+                {
+                    Headers = ["A", "B"],
+                    Rows = rows,
+                    RepeatHeaderOnPageBreak = false,
+                },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        var firstTable = plan.Pages
+            .SelectMany(p => p.Blocks)
+            .Select(b => b.Block)
+            .OfType<TableBlock>()
+            .First();
+
+        await Assert.That(firstTable.ShowHeader).IsTrue();
+        await Assert.That(firstTable.Headers).IsEquivalentTo(["A", "B"]);
     }
 }

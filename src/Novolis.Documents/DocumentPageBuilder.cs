@@ -89,13 +89,7 @@ public sealed class DocumentPageBuilder
         return this;
     }
 
-    /// <summary>Simple footer template on First, Toc, Body, and Last by default.</summary>
+    /// <summary>Simple footer template on body pages.</summary>
     public DocumentPageBuilder Footer(string template, float fontSizePt = 9f) =>
-        Footer(f => f
-            .Template(template)
-            .FontSize(fontSizePt)
-            .IncludeFirstPage()
-            .IncludeToc()
-            .IncludeBody()
-            .IncludeLastPage());
+        Footer(f => f.Template(template).FontSize(fontSizePt).IncludeBody());
 }

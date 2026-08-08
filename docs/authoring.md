@@ -60,14 +60,16 @@ Meta fields feed the First page and `{…}` template placeholders (see [header-f
     .Trade6x9()          // or .A4(), .TrimSize(…), .Margins(…)
     .Bands(16f, 16f)     // header / footer band heights (points)
     .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
-    .Footer(f => f.Template("{page} / {pages}").IncludeFirstPage().IncludeToc().IncludeBody().IncludeLastPage()))
+    .Footer(f => f.Template("{page} / {pages}").IncludeBody()))
 ```
+
+Defaults for both header and footer: **Body only** (First / Toc / Last off). Opt in with `IncludeFirstPage()`, `IncludeToc()`, `IncludeLastPage()`.
 
 Shortcuts:
 
 ```csharp
 .Header("{title}")                 // body only
-.Footer("{page} / {pages}")        // First + Toc + Body + Last
+.Footer("{page} / {pages}")        // body only
 ```
 
 ## Body spine
@@ -82,11 +84,14 @@ Shortcuts:
 
 ### First
 
+Usually one page. When title lines / blocks do not fit, layout continues onto further First pages automatically (no flag).
+
 ```csharp
 .First(f => f
     .Title("Override")       // optional; else Meta.Title
     .Subtitle("…")
-    .Lines("Line A", "Line B"))
+    .Lines("Line A", "Line B")
+    .Blocks(b => b.Paragraph("…").PageBreak().Paragraph("…")))
 ```
 
 ### Content
@@ -98,12 +103,13 @@ Shortcuts:
 | `Toc()` | Sets `IncludeToc` (contents page before body flow) |
 | `Chapter(title)` / `Chapter(title, ch => …)` | Level-1 heading (+ nested blocks) |
 | `H1` / `H2` / `H3` | `HeadingBlock` (prefer `Chapter` for level 1) |
-| `Paragraph` | `ParagraphBlock` |
+| `Paragraph` | `ParagraphBlock` (`\n` = soft line breaks inside the paragraph) |
 | `Table` | `TableBlock` via `TableBuilder` |
 | `Columns` | `ColumnsBlock` via `ColumnsBuilder` |
 | `Image(path\|bytes, w, h)` | `ImageBlock` |
 | `SceneBreak` | `SceneBreakBlock` |
-| `PageBreak` / `BlankPage` | Explicit breaks |
+| `LineBreak` | Forced blank body line |
+| `PageBreak` / `BlankPage` | Explicit page breaks |
 | `Add` / `AddRange` | Arbitrary `IBlock` |
 
 ### Chapter
@@ -120,11 +126,16 @@ Semantics: emit `HeadingBlock { Level = 1 }`. Layout starts a new page when prio
 
 ### Last
 
+Usually one page. Overflow continues onto further Last pages automatically (no flag).
+
 ```csharp
 .Last(l => l
     .Title("Colophon")
     .Lines("End of sample.")
-    .Blocks(b => b.Table(t => t.Headers("K", "V").Row("Engine", "Skia"))))
+    .Blocks(b => b
+        .Table(t => t.Headers("K", "V").Row("Engine", "Skia"))
+        .PageBreak()
+        .Paragraph("Continued colophon.")))
 ```
 
 ## Tables
@@ -138,8 +149,10 @@ Semantics: emit `HeadingBlock { Level = 1 }`. Layout starts a new page when prio
     .Rules(TableRuleStyle.Horizontal)
     .ShowHeader()
     .HeaderBackground()
-    .RepeatHeaderOnPageBreak())
+    .RepeatHeaderOnPageBreak())   // default true — header repeats on each page slice
 ```
+
+Bulk rows: `.Rows(enumerableOfStringLists)`.
 
 See [blocks.md](blocks.md#tableblock).
 
