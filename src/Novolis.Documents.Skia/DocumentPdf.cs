@@ -201,6 +201,19 @@ public static class DocumentPdf
             case TextBoxBlock textBox:
                 DrawTextBox(canvas, textBox, typeface, x, y, width);
                 break;
+            case CodeBlock code:
+                DrawTextBox(canvas, new TextBoxBlock
+                {
+                    Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
+                    PaddingPt = code.PaddingPt,
+                    BorderStrokePt = 0f,
+                    Background = code.Background,
+                    FontSizePt = code.FontSizePt,
+                    LineHeight = code.LineHeight,
+                    LineGapPt = 0f,
+                    TextColor = code.TextColor,
+                }, typeface, x, y, width);
+                break;
             case ImageBlock image:
                 DrawImage(canvas, image, x, y);
                 break;

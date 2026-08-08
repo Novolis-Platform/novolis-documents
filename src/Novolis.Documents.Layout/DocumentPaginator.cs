@@ -288,6 +288,9 @@ public static class DocumentPaginator
                 case TextBoxBlock textBox:
                     PlaceTextBox(textBox, document, measurer, width, contentHeight, ref y, blocks, Flush);
                     continue;
+                case CodeBlock code:
+                    PlaceTextBox(AsTextBox(code), document, measurer, width, contentHeight, ref y, blocks, Flush);
+                    continue;
                 case HeadingBlock heading:
                 {
                     var height = MeasureBlock(heading, document, measurer, width);
@@ -414,6 +417,10 @@ public static class DocumentPaginator
                     continue;
                 case TextBoxBlock textBox:
                     PlaceTextBox(textBox, document, measurer, width, contentHeight,
+                        ref y, blocks, Flush);
+                    continue;
+                case CodeBlock code:
+                    PlaceTextBox(AsTextBox(code), document, measurer, width, contentHeight,
                         ref y, blocks, Flush);
                     continue;
                 case ColumnsBlock columns:
@@ -740,6 +747,18 @@ public static class DocumentPaginator
         return total;
     }
 
+    static TextBoxBlock AsTextBox(CodeBlock code) => new()
+    {
+        Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
+        PaddingPt = code.PaddingPt,
+        BorderStrokePt = 0f,
+        Background = code.Background,
+        FontSizePt = code.FontSizePt,
+        LineHeight = code.LineHeight,
+        LineGapPt = 0f,
+        TextColor = code.TextColor,
+    };
+
     static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
     {
         return block switch
@@ -748,6 +767,7 @@ public static class DocumentPaginator
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             TableBlock t => MeasureTable(t, document, measurer, width),
             TextBoxBlock box => MeasureTextBox(box, measurer, width),
+            CodeBlock code => MeasureTextBox(AsTextBox(code), measurer, width),
             ImageBlock image => System.Math.Max(0f, image.HeightPt),
             ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,

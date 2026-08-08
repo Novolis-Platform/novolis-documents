@@ -118,6 +118,14 @@ public sealed class DocumentContentBuilder
         return Add(box.Build());
     }
 
+    /// <summary>Monospace code panel.</summary>
+    public DocumentContentBuilder Code(string code, string? language = null)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        var lines = code.Replace("\r\n", "\n").Split('\n');
+        return Add(new CodeBlock { Lines = lines, Language = language });
+    }
+
     /// <summary>Centered scene-break ornament.</summary>
     public DocumentContentBuilder SceneBreak(string ornament = "***")
     {

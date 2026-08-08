@@ -12,6 +12,7 @@
 | `ColumnsBlock` | Side-by-side block streams |
 | `ImageBlock` | Raster/SVG bytes or path |
 | `TextBoxBlock` | Bordered text panel (notes / panels); splits by line across pages |
+| `CodeBlock` | Monospace filled panel; splits by line across pages |
 | `SceneBreakBlock` | Ornamental break between scenes |
 | `LineBreakBlock` | Forced blank body line |
 | `PageBreakBlock` | Force a new page in the current region (Body / First / Last) |

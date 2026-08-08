@@ -164,6 +164,33 @@ public sealed class TextBoxBlock : IBlock
     public DocumentColor TextColor { get; init; } = DocumentColor.Gray;
 }
 
+/// <summary>
+/// Monospace code panel (plain lines). Layout may split across pages by line when content overflows.
+/// </summary>
+public sealed class CodeBlock : IBlock
+{
+    /// <summary>Source lines drawn top-to-bottom.</summary>
+    public IReadOnlyList<string> Lines { get; init; } = [];
+
+    /// <summary>Optional language label (informational; not drawn by default).</summary>
+    public string? Language { get; init; }
+
+    /// <summary>Inner padding in points.</summary>
+    public float PaddingPt { get; init; } = 6f;
+
+    /// <summary>Font size in points.</summary>
+    public float FontSizePt { get; init; } = 9f;
+
+    /// <summary>Line height multiplier.</summary>
+    public float LineHeight { get; init; } = 1.35f;
+
+    /// <summary>Fill behind the text (null = light gray).</summary>
+    public DocumentColor? Background { get; init; } = DocumentColor.LightGray;
+
+    /// <summary>Ink color for lines.</summary>
+    public DocumentColor TextColor { get; init; } = DocumentColor.Black;
+}
+
 /// <summary>Centered scene-break ornament.</summary>
 public sealed class SceneBreakBlock : IBlock
 {
