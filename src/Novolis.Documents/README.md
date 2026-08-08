@@ -22,8 +22,18 @@ dotnet add package Novolis.Documents
 using Novolis.Documents;
 
 var document = Document.Create("Sample")
-    .Meta(m => m.Author("Example"))
-    .Page(p => p.Trade6x9().Header("{title}").Footer("{page}"))
+    .Meta(m => m
+        .Author("Example")
+        .Publisher("Novolis")
+        .Subject("Demo")
+        .Keywords("pdf", "documents")
+        .Date(new DateOnly(2026, 8, 8)))
+    .Page(p => p
+        .Trade6x9()
+        .Header("{title}")
+        .Footer("{page} / {pages}")
+        .Chrome(c => c.PageNumbersOnFrontMatter()))
+    .Watermark(w => w.Text("DRAFT").Opacity(0.12f))
     .Body(b => b
         .First(f => f.Lines("Trade sample"))
         .Content(c => c
@@ -35,7 +45,7 @@ var document = Document.Create("Sample")
     .Build();
 ```
 
-`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Object initializers on `PagedDocument` remain supported for mappers.
+`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Page numbers on First/Toc/Last are on by default (`ChromeOptions`); use `.Chrome(c => c.QuietFrontMatter())` to turn them off.
 
 `DefaultMargin` is print-oriented (binding 0.75″ / outer 0.5″ / head 0.5″ / foot 0.65″). Use `TrimPresets.ReportMargin` for uniform 1″.
 ## Related packages

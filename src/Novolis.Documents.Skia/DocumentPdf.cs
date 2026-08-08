@@ -50,10 +50,11 @@ public static class DocumentPdf
             var width = document.Setup.Trim.Width.Points;
             var height = document.Setup.Trim.Height.Points;
 
+            var pageCount = plan.Pages.Count;
             foreach (var page in plan.Pages)
             {
                 using var canvas = pdf.BeginPage(width, height);
-                DrawPage(canvas, document, page, typeface, boldTypeface, measurer);
+                DrawPage(canvas, document, page, pageCount, typeface, boldTypeface, measurer);
                 pdf.EndPage();
             }
 
@@ -77,6 +78,7 @@ public static class DocumentPdf
         SKCanvas canvas,
         PagedDocument document,
         PageSlice page,
+        int pageCount,
         SKTypeface typeface,
         SKTypeface boldTypeface,
         SkiaTextMeasurer measurer)
@@ -89,15 +91,18 @@ public static class DocumentPdf
         var pageWidth = document.Setup.Trim.Width.Points;
         var pageHeight = document.Setup.Trim.Height.Points;
 
+        DrawWatermark(canvas, document, page, pageWidth, pageHeight, boldTypeface);
+
         if (page.Kind == PageKind.Cover)
         {
             DrawCover(canvas, document, typeface, boldTypeface, pageWidth, pageHeight);
+            DrawPageChrome(canvas, document, page, pageCount, typeface, contentX, contentWidth, margin, pageHeight);
             return;
         }
 
         if (page.ShowHeader && document.Header is { } header)
         {
-            var text = FormatChrome(header.Template, document, page.Number);
+            var text = FormatChrome(header.Template, document, page.Number, pageCount);
             DrawCenteredText(canvas, text, typeface, header.FontSizePt,
                 contentX, margin.Top.Points, contentWidth, document.Setup.HeaderBand.Points);
         }
@@ -111,12 +116,79 @@ public static class DocumentPdf
 
         if (page.ShowFooter && document.Footer is { } footer)
         {
-            var text = FormatChrome(footer.Template, document, page.Number);
+            var text = FormatChrome(footer.Template, document, page.Number, pageCount);
             var footerY = pageHeight - margin.Bottom.Points - document.Setup.FooterBand.Points;
             DrawCenteredText(canvas, text, typeface, footer.FontSizePt,
                 contentX, footerY, contentWidth, document.Setup.FooterBand.Points);
         }
     }
+
+    static void DrawPageChrome(
+        SKCanvas canvas,
+        PagedDocument document,
+        PageSlice page,
+        int pageCount,
+        SKTypeface typeface,
+        float contentX,
+        float contentWidth,
+        Thickness margin,
+        float pageHeight)
+    {
+        if (page.ShowHeader && document.Header is { } header)
+        {
+            var text = FormatChrome(header.Template, document, page.Number, pageCount);
+            DrawCenteredText(canvas, text, typeface, header.FontSizePt,
+                contentX, margin.Top.Points, contentWidth, document.Setup.HeaderBand.Points);
+        }
+
+        if (page.ShowFooter && document.Footer is { } footer)
+        {
+            var text = FormatChrome(footer.Template, document, page.Number, pageCount);
+            var footerY = pageHeight - margin.Bottom.Points - document.Setup.FooterBand.Points;
+            DrawCenteredText(canvas, text, typeface, footer.FontSizePt,
+                contentX, footerY, contentWidth, document.Setup.FooterBand.Points);
+        }
+    }
+
+    static void DrawWatermark(
+        SKCanvas canvas,
+        PagedDocument document,
+        PageSlice page,
+        float pageWidth,
+        float pageHeight,
+        SKTypeface boldTypeface)
+    {
+        if (document.Watermark is not { Text: { Length: > 0 } text } mark)
+            return;
+        if (!WatermarkApplies(mark.Pages, page.Kind))
+            return;
+
+        var opacity = System.Math.Clamp(mark.Opacity, 0f, 1f);
+        if (opacity <= 0f)
+            return;
+
+        var alpha = (byte)System.Math.Clamp((int)(opacity * 255f), 0, 255);
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(0x40, 0x40, 0x40, alpha),
+        };
+        using var font = new SKFont(boldTypeface, System.Math.Max(8f, mark.FontSizePt));
+
+        canvas.Save();
+        canvas.Translate(pageWidth / 2f, pageHeight / 2f);
+        canvas.RotateDegrees(mark.RotationDegrees);
+        canvas.DrawText(text, 0, 0, SKTextAlign.Center, font, paint);
+        canvas.Restore();
+    }
+
+    static bool WatermarkApplies(WatermarkPages pages, PageKind kind) => kind switch
+    {
+        PageKind.Cover => (pages & WatermarkPages.First) != 0,
+        PageKind.Toc => (pages & WatermarkPages.Toc) != 0,
+        PageKind.Last => (pages & WatermarkPages.Last) != 0,
+        _ => (pages & WatermarkPages.Body) != 0,
+    };
 
     static void DrawCover(
         SKCanvas canvas,
@@ -134,7 +206,7 @@ public static class DocumentPdf
         var author = first?.Author ?? meta.Author;
         var rights = first?.Rights ?? meta.Rights;
 
-        float y = pageHeight * 0.32f;
+        float y = pageHeight * 0.28f;
         DrawCenteredText(canvas, title, boldTypeface, 22f, 40, y, pageWidth - 80, 40);
         y += 36;
         if (!string.IsNullOrWhiteSpace(subtitle))
@@ -153,12 +225,37 @@ public static class DocumentPdf
         {
             y += 12;
             DrawCenteredText(canvas, author, typeface, 11f, 40, y, pageWidth - 80, 20);
-            y += 24;
+            y += 22;
+        }
+
+        if (!string.IsNullOrWhiteSpace(meta.Contributors))
+        {
+            DrawCenteredText(canvas, meta.Contributors, typeface, 10f, 40, y, pageWidth - 80, 18);
+            y += 20;
+        }
+
+        if (!string.IsNullOrWhiteSpace(meta.Publisher))
+        {
+            DrawCenteredText(canvas, meta.Publisher, typeface, 10f, 40, y, pageWidth - 80, 18);
+            y += 20;
+        }
+
+        if (meta.Date is { } date)
+        {
+            DrawCenteredText(canvas, date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                typeface, 10f, 40, y, pageWidth - 80, 18);
+            y += 20;
+        }
+
+        if (!string.IsNullOrWhiteSpace(meta.Version))
+        {
+            DrawCenteredText(canvas, $"Version {meta.Version}", typeface, 9.5f, 40, y, pageWidth - 80, 18);
+            y += 20;
         }
 
         if (first is { Lines.Count: > 0 })
         {
-            y += 16;
+            y += 12;
             foreach (var line in first.Lines)
             {
                 if (string.IsNullOrWhiteSpace(line))
@@ -168,9 +265,15 @@ public static class DocumentPdf
             }
         }
 
+        var footY = pageHeight - 80;
+        if (!string.IsNullOrWhiteSpace(meta.Identifier))
+        {
+            DrawCenteredText(canvas, meta.Identifier, typeface, 8.5f, 40, footY - 18, pageWidth - 80, 16);
+        }
+
         if (!string.IsNullOrWhiteSpace(rights))
         {
-            DrawCenteredText(canvas, rights, typeface, 8.5f, 40, pageHeight - 80, pageWidth - 80, 18);
+            DrawCenteredText(canvas, rights, typeface, 8.5f, 40, footY, pageWidth - 80, 18);
         }
     }
 
@@ -624,10 +727,29 @@ public static class DocumentPdf
         return result;
     }
 
-    static string FormatChrome(string template, PagedDocument document, int pageNumber) =>
-        template
+    static string FormatChrome(string template, PagedDocument document, int pageNumber, int pageCount)
+    {
+        var meta = document.Meta;
+        var date = meta.Date?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        var keywords = meta.Keywords.Count == 0 ? string.Empty : string.Join(", ", meta.Keywords);
+        return template
             .Replace("{page}", pageNumber.ToString(), StringComparison.OrdinalIgnoreCase)
-            .Replace("{title}", document.Meta.Title, StringComparison.OrdinalIgnoreCase);
+            .Replace("{pages}", pageCount.ToString(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{title}", meta.Title ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{subtitle}", meta.Subtitle ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{author}", meta.Author ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{contributors}", meta.Contributors ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{series}", meta.Series ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{publisher}", meta.Publisher ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{subject}", meta.Subject ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{description}", meta.Description ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{keywords}", keywords, StringComparison.OrdinalIgnoreCase)
+            .Replace("{identifier}", meta.Identifier ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{language}", meta.Language ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{version}", meta.Version ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{date}", date, StringComparison.OrdinalIgnoreCase)
+            .Replace("{rights}", meta.Rights ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
 
     static SKTypeface LoadTypeface(string? path, bool bold)
     {

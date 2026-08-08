@@ -10,16 +10,15 @@ namespace Novolis.Documents;
 public sealed class DocumentBuilder
 {
     string? _title;
-    string? _subtitle;
-    string? _series;
-    string? _author;
-    string? _rights;
+    DocumentMeta? _meta;
     Size _trim = TrimPresets.Inch6x9;
     Thickness _margin = TrimPresets.DefaultMargin;
     Length _headerBand = LengthUnits.FromPoints(16f);
     Length _footerBand = LengthUnits.FromPoints(16f);
     RunningChrome? _header;
     RunningChrome? _footer;
+    ChromeOptions _chrome = ChromeOptions.Default;
+    Watermark? _watermark;
     Typography? _typography;
     bool _suppressHeaderOnLevel1Open = true;
     readonly DocumentBodyBuilder _body = new();
@@ -37,31 +36,22 @@ public sealed class DocumentBuilder
     {
         ArgumentNullException.ThrowIfNull(configure);
         var meta = new DocumentMetaBuilder();
-        if (_title is not null)
+        if (_meta is not null)
+            meta.From(_meta);
+        else if (_title is not null)
             meta.Title(_title);
-        if (_subtitle is not null)
-            meta.Subtitle(_subtitle);
-        if (_series is not null)
-            meta.Series(_series);
-        if (_author is not null)
-            meta.Author(_author);
-        if (_rights is not null)
-            meta.Rights(_rights);
         configure(meta);
-        var built = meta.Build();
-        _title = built.Title;
-        _subtitle = built.Subtitle;
-        _series = built.Series;
-        _author = built.Author;
-        _rights = built.Rights;
+        _meta = meta.Build();
+        _title = _meta.Title;
         return this;
     }
 
-    /// <summary>Configures trim, margins, header, and footer.</summary>
+    /// <summary>Configures trim, margins, header, footer, and chrome visibility.</summary>
     public DocumentBuilder Page(Action<DocumentPageBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        var page = new DocumentPageBuilder(_trim, _margin, _headerBand, _footerBand, _header, _footer);
+        var page = new DocumentPageBuilder(
+            _trim, _margin, _headerBand, _footerBand, _header, _footer, _chrome);
         configure(page);
         _trim = page.TrimValue;
         _margin = page.MarginValue;
@@ -69,6 +59,24 @@ public sealed class DocumentBuilder
         _footerBand = page.FooterBandValue;
         _header = page.HeaderChrome;
         _footer = page.FooterChrome;
+        _chrome = page.ChromeValue;
+        return this;
+    }
+
+    /// <summary>Diagonal text watermark.</summary>
+    public DocumentBuilder Watermark(Action<WatermarkBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new WatermarkBuilder();
+        configure(builder);
+        _watermark = builder.Build();
+        return this;
+    }
+
+    /// <summary>Clears any watermark.</summary>
+    public DocumentBuilder NoWatermark()
+    {
+        _watermark = null;
         return this;
     }
 
@@ -111,19 +119,22 @@ public sealed class DocumentBuilder
     /// <summary>Materializes an immutable <see cref="PagedDocument"/>.</summary>
     public PagedDocument Build()
     {
-        if (string.IsNullOrWhiteSpace(_title))
+        if (string.IsNullOrWhiteSpace(_title) && _meta is null)
             throw new InvalidOperationException("Document requires Title (via Create(title) or Meta) before Build().");
+
+        var meta = _meta;
+        if (meta is null)
+        {
+            meta = new DocumentMeta { Title = _title! };
+        }
+        else if (!string.IsNullOrWhiteSpace(_title) && !string.Equals(meta.Title, _title, StringComparison.Ordinal))
+        {
+            meta = new DocumentMetaBuilder().From(meta).Title(_title!).Build();
+        }
 
         return new PagedDocument
         {
-            Meta = new DocumentMeta
-            {
-                Title = _title,
-                Subtitle = _subtitle,
-                Series = _series,
-                Author = _author,
-                Rights = _rights,
-            },
+            Meta = meta,
             Setup = new PageSetup
             {
                 Trim = _trim,
@@ -134,6 +145,8 @@ public sealed class DocumentBuilder
             Typography = _typography ?? new Typography(),
             Header = _header,
             Footer = _footer,
+            Chrome = _chrome,
+            Watermark = _watermark,
             First = _body.FirstPage,
             Last = _body.LastPage,
             IncludeCover = _body.IncludeCover,

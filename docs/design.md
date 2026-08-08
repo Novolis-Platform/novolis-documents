@@ -36,10 +36,14 @@ Novolis.Documents.Skia   (+ SkiaSharp)
 
 ## Chrome rules
 
-- First/title page: no running header/footer (`First` / `IncludeCover`)
-- Contents: footer page numbers only
+Defaults via `ChromeOptions` (overridable on `Page.Chrome(…)`):
+
+- First: footer only (page numbers)
+- Toc: footer only
 - Body: header + footer; optional suppress header on level-1-open pages
-- Last: optional colophon (`LastPage`)
+- Last: footer only
+
+`Watermark` is optional diagonal text behind content (`WatermarkPages` selects regions).
 
 ## Consumers
 

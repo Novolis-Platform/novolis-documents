@@ -7,7 +7,38 @@ public sealed class DocumentMetaBuilder
     string? _subtitle;
     string? _series;
     string? _author;
+    string? _contributors;
+    string? _publisher;
+    string? _subject;
+    string? _description;
+    readonly List<string> _keywords = [];
+    string? _identifier;
+    string? _language;
+    string? _version;
+    DateOnly? _date;
     string? _rights;
+
+    /// <summary>Seeds from an existing meta snapshot.</summary>
+    public DocumentMetaBuilder From(DocumentMeta meta)
+    {
+        ArgumentNullException.ThrowIfNull(meta);
+        _title = meta.Title;
+        _subtitle = meta.Subtitle;
+        _series = meta.Series;
+        _author = meta.Author;
+        _contributors = meta.Contributors;
+        _publisher = meta.Publisher;
+        _subject = meta.Subject;
+        _description = meta.Description;
+        _keywords.Clear();
+        _keywords.AddRange(meta.Keywords);
+        _identifier = meta.Identifier;
+        _language = meta.Language;
+        _version = meta.Version;
+        _date = meta.Date;
+        _rights = meta.Rights;
+        return this;
+    }
 
     /// <summary>Primary title.</summary>
     public DocumentMetaBuilder Title(string title)
@@ -38,7 +69,72 @@ public sealed class DocumentMetaBuilder
         return this;
     }
 
-    /// <summary>Rights.</summary>
+    /// <summary>Contributors.</summary>
+    public DocumentMetaBuilder Contributors(string? contributors)
+    {
+        _contributors = contributors;
+        return this;
+    }
+
+    /// <summary>Publisher / imprint.</summary>
+    public DocumentMetaBuilder Publisher(string? publisher)
+    {
+        _publisher = publisher;
+        return this;
+    }
+
+    /// <summary>Subject / topic.</summary>
+    public DocumentMetaBuilder Subject(string? subject)
+    {
+        _subject = subject;
+        return this;
+    }
+
+    /// <summary>Description / abstract.</summary>
+    public DocumentMetaBuilder Description(string? description)
+    {
+        _description = description;
+        return this;
+    }
+
+    /// <summary>Keywords (replaces prior list).</summary>
+    public DocumentMetaBuilder Keywords(params string[] keywords)
+    {
+        ArgumentNullException.ThrowIfNull(keywords);
+        _keywords.Clear();
+        _keywords.AddRange(keywords.Where(static k => !string.IsNullOrWhiteSpace(k)));
+        return this;
+    }
+
+    /// <summary>Document identifier (ISBN, DOI, …).</summary>
+    public DocumentMetaBuilder Identifier(string? identifier)
+    {
+        _identifier = identifier;
+        return this;
+    }
+
+    /// <summary>Language tag.</summary>
+    public DocumentMetaBuilder Language(string? language)
+    {
+        _language = language;
+        return this;
+    }
+
+    /// <summary>Edition / version label.</summary>
+    public DocumentMetaBuilder Version(string? version)
+    {
+        _version = version;
+        return this;
+    }
+
+    /// <summary>Publication or issue date.</summary>
+    public DocumentMetaBuilder Date(DateOnly? date)
+    {
+        _date = date;
+        return this;
+    }
+
+    /// <summary>Rights / copyright.</summary>
     public DocumentMetaBuilder Rights(string? rights)
     {
         _rights = rights;
@@ -52,6 +148,15 @@ public sealed class DocumentMetaBuilder
         Subtitle = _subtitle,
         Series = _series,
         Author = _author,
+        Contributors = _contributors,
+        Publisher = _publisher,
+        Subject = _subject,
+        Description = _description,
+        Keywords = _keywords.ToArray(),
+        Identifier = _identifier,
+        Language = _language,
+        Version = _version,
+        Date = _date,
         Rights = _rights,
     };
 }
@@ -262,5 +367,125 @@ public sealed class LastPageBuilder
         Title = _title,
         Lines = _lines.ToArray(),
         Blocks = _blocks.ToBlocks(),
+    };
+}
+
+/// <summary>Fluent builder for <see cref="ChromeOptions"/>.</summary>
+public sealed class ChromeOptionsBuilder
+{
+    ChromeBand _first = ChromeBand.Footer;
+    ChromeBand _toc = ChromeBand.Footer;
+    ChromeBand _body = ChromeBand.HeaderAndFooter;
+    ChromeBand _last = ChromeBand.Footer;
+
+    /// <summary>Opening page bands.</summary>
+    public ChromeOptionsBuilder First(ChromeBand band)
+    {
+        _first = band;
+        return this;
+    }
+
+    /// <summary>TOC page bands.</summary>
+    public ChromeOptionsBuilder Toc(ChromeBand band)
+    {
+        _toc = band;
+        return this;
+    }
+
+    /// <summary>Body page bands.</summary>
+    public ChromeOptionsBuilder Body(ChromeBand band)
+    {
+        _body = band;
+        return this;
+    }
+
+    /// <summary>Last page bands.</summary>
+    public ChromeOptionsBuilder Last(ChromeBand band)
+    {
+        _last = band;
+        return this;
+    }
+
+    /// <summary>Footer (page numbers) on First, Toc, and Last; header+footer on Body.</summary>
+    public ChromeOptionsBuilder PageNumbersOnFrontMatter()
+    {
+        _first = ChromeBand.Footer;
+        _toc = ChromeBand.Footer;
+        _last = ChromeBand.Footer;
+        return this;
+    }
+
+    /// <summary>No chrome on First / Toc / Last.</summary>
+    public ChromeOptionsBuilder QuietFrontMatter()
+    {
+        _first = ChromeBand.None;
+        _toc = ChromeBand.None;
+        _last = ChromeBand.None;
+        return this;
+    }
+
+    /// <summary>Builds chrome options.</summary>
+    public ChromeOptions Build() => new()
+    {
+        First = _first,
+        Toc = _toc,
+        Body = _body,
+        Last = _last,
+    };
+}
+
+/// <summary>Fluent builder for <see cref="Watermark"/>.</summary>
+public sealed class WatermarkBuilder
+{
+    string _text = "DRAFT";
+    float _fontSizePt = 54f;
+    float _opacity = 0.12f;
+    float _rotation = -32f;
+    WatermarkPages _pages = WatermarkPages.All;
+
+    /// <summary>Watermark text.</summary>
+    public WatermarkBuilder Text(string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        _text = text;
+        return this;
+    }
+
+    /// <summary>Font size in points.</summary>
+    public WatermarkBuilder FontSize(float points)
+    {
+        _fontSizePt = points;
+        return this;
+    }
+
+    /// <summary>Opacity 0–1.</summary>
+    public WatermarkBuilder Opacity(float opacity)
+    {
+        _opacity = opacity;
+        return this;
+    }
+
+    /// <summary>Rotation in degrees.</summary>
+    public WatermarkBuilder Rotation(float degrees)
+    {
+        _rotation = degrees;
+        return this;
+    }
+
+    /// <summary>Which regions show the watermark.</summary>
+    public WatermarkBuilder On(WatermarkPages pages)
+    {
+        _pages = pages;
+        return this;
+    }
+
+    /// <summary>Builds the watermark.</summary>
+    public Watermark Build() => new()
+    {
+        Text = _text,
+        FontSizePt = _fontSizePt,
+        Opacity = _opacity,
+        RotationDegrees = _rotation,
+        Pages = _pages,
     };
 }

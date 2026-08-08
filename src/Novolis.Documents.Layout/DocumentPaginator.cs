@@ -17,13 +17,14 @@ public static class DocumentPaginator
 
         if (document.HasFirstPage)
         {
+            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Cover);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Cover,
                 Number = 1,
                 Blocks = [new PlacedBlock(new CoverBlock(), 0, 0)],
-                ShowHeader = false,
-                ShowFooter = false,
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
             });
         }
 
@@ -44,13 +45,14 @@ public static class DocumentPaginator
 
             if (document.HasFirstPage)
             {
+                var (showHeader, showFooter) = ResolveChrome(document, PageKind.Cover);
                 pages.Add(new PageSlice
                 {
                     Kind = PageKind.Cover,
                     Number = 1,
                     Blocks = [new PlacedBlock(new CoverBlock(), 0, 0)],
-                    ShowHeader = false,
-                    ShowFooter = false,
+                    ShowHeader = showHeader,
+                    ShowFooter = showFooter,
                 });
             }
 
@@ -135,13 +137,14 @@ public static class DocumentPaginator
 
         void Flush(int number)
         {
+            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Toc);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Toc,
                 Number = number,
                 Blocks = blocks.ToList(),
-                ShowHeader = false,
-                ShowFooter = document.Footer is not null,
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
             });
             blocks.Clear();
             y = 0;
@@ -164,13 +167,14 @@ public static class DocumentPaginator
 
         if (pages.Count == 0)
         {
+            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Toc);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Toc,
                 Number = startNumber,
                 Blocks = [new PlacedBlock(new HeadingBlock { Level = 2, Text = "Contents" }, 0, titleH)],
-                ShowHeader = false,
-                ShowFooter = document.Footer is not null,
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
             });
         }
 
@@ -195,13 +199,14 @@ public static class DocumentPaginator
         {
             if (blocks.Count == 0)
                 return;
+            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Last);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Last,
                 Number = pageNumber++,
                 Blocks = blocks.ToList(),
-                ShowHeader = false,
-                ShowFooter = document.Footer is not null,
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
             });
             blocks.Clear();
             y = 0;
@@ -269,14 +274,16 @@ public static class DocumentPaginator
         {
             if (blocks.Count == 0)
                 return;
+            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Body);
+            if (showHeader && document.SuppressHeaderOnLevel1Open && pageOpensWithLevel1)
+                showHeader = false;
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Body,
                 Number = pageNumber,
                 Blocks = blocks.ToList(),
-                ShowHeader = document.Header is not null
-                    && !(document.SuppressHeaderOnLevel1Open && pageOpensWithLevel1),
-                ShowFooter = document.Footer is not null,
+                ShowHeader = showHeader,
+                ShowFooter = showFooter,
             });
             pageNumber++;
             blocks.Clear();
@@ -293,14 +300,17 @@ public static class DocumentPaginator
                     continue;
                 case BlankPageBlock:
                     Flush();
-                    pages.Add(new PageSlice
                     {
-                        Kind = PageKind.Body,
-                        Number = pageNumber++,
-                        Blocks = [],
-                        ShowHeader = false,
-                        ShowFooter = document.Footer is not null,
-                    });
+                        var (showHeader, showFooter) = ResolveChrome(document, PageKind.Body);
+                        pages.Add(new PageSlice
+                        {
+                            Kind = PageKind.Body,
+                            Number = pageNumber++,
+                            Blocks = [],
+                            ShowHeader = showHeader,
+                            ShowFooter = showFooter,
+                        });
+                    }
                     continue;
                 case HeadingBlock { Level: 1 } h1:
                     if (blocks.Count > 0)
@@ -606,6 +616,21 @@ public static class DocumentPaginator
         foreach (var row in table.Rows)
             total += MeasureTableRow(row, columns, colWidths, padding, style, measurer);
         return total;
+    }
+
+    static (bool ShowHeader, bool ShowFooter) ResolveChrome(PagedDocument document, PageKind kind)
+    {
+        var chrome = document.Chrome ?? ChromeOptions.Default;
+        var band = kind switch
+        {
+            PageKind.Cover => chrome.First,
+            PageKind.Toc => chrome.Toc,
+            PageKind.Last => chrome.Last,
+            _ => chrome.Body,
+        };
+        return (
+            ChromeOptions.HasHeader(band) && document.Header is not null,
+            ChromeOptions.HasFooter(band) && document.Footer is not null);
     }
 
     static float ContentWidth(PagedDocument document) =>

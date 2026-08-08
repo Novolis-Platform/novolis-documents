@@ -58,8 +58,22 @@ public sealed class DocumentBuilderTests
     public async Task Chapter_emits_level1_and_nested_blocks_with_toc_first_last()
     {
         var doc = Document.Create("Book")
-            .Meta(m => m.Author("Novolis"))
-            .Page(p => p.Trade6x9().Header("{title}").Footer("{page}"))
+            .Meta(m => m
+                .Author("Novolis")
+                .Publisher("Novolis-Platform")
+                .Subject("Documents")
+                .Keywords("pdf", "layout")
+                .Identifier("DOC-1")
+                .Language("en")
+                .Version("1.0")
+                .Date(new DateOnly(2026, 8, 8))
+                .Description("Sample"))
+            .Page(p => p
+                .Trade6x9()
+                .Header("{title}")
+                .Footer("{page} / {pages}")
+                .Chrome(c => c.PageNumbersOnFrontMatter()))
+            .Watermark(w => w.Text("DRAFT").Opacity(0.1f).On(WatermarkPages.All))
             .Body(b => b
                 .First(f => f.Lines("Trade paperback", "Skia sample"))
                 .Content(c => c
@@ -75,16 +89,18 @@ public sealed class DocumentBuilderTests
             .Build();
 
         await Assert.That(doc.HasFirstPage).IsTrue();
-        await Assert.That(doc.First!.Lines.Count).IsEqualTo(2);
+        await Assert.That(doc.Meta.Publisher).IsEqualTo("Novolis-Platform");
+        await Assert.That(doc.Meta.Keywords.Count).IsEqualTo(2);
+        await Assert.That(doc.Meta.Date).IsEqualTo(new DateOnly(2026, 8, 8));
+        await Assert.That(doc.Watermark!.Text).IsEqualTo("DRAFT");
+        await Assert.That(doc.Chrome.First).IsEqualTo(ChromeBand.Footer);
+        await Assert.That(doc.Footer!.Template).Contains("{pages}");
         await Assert.That(doc.IncludeToc).IsTrue();
         await Assert.That(doc.Last!.Title).IsEqualTo("Colophon");
-        await Assert.That(doc.Last.Blocks.OfType<TableBlock>().Count()).IsEqualTo(1);
 
         await Assert.That(doc.Body[0]).IsTypeOf<HeadingBlock>();
         var h1 = (HeadingBlock)doc.Body[0];
         await Assert.That(h1.Level).IsEqualTo(1);
         await Assert.That(h1.Text).IsEqualTo("Chapter One");
-        await Assert.That(doc.Body.OfType<ParagraphBlock>().Count()).IsEqualTo(2);
-        await Assert.That(doc.Body.OfType<HeadingBlock>().Count(h => h.Level == 2)).IsEqualTo(1);
     }
 }

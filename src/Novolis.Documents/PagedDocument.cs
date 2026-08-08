@@ -18,11 +18,17 @@ public sealed class PagedDocument
     /// <summary>Body blocks in reading order (do not put cover content here; use <see cref="First"/> / <see cref="IncludeCover"/>).</summary>
     public required IReadOnlyList<IBlock> Body { get; init; }
 
-    /// <summary>Running header template (body pages).</summary>
+    /// <summary>Running header template.</summary>
     public RunningChrome? Header { get; init; }
 
-    /// <summary>Running footer template (body and contents pages).</summary>
+    /// <summary>Running footer template (often <c>{page}</c>).</summary>
     public RunningChrome? Footer { get; init; }
+
+    /// <summary>Per-region header/footer visibility. Defaults to page numbers on First/Toc/Last.</summary>
+    public ChromeOptions Chrome { get; init; } = ChromeOptions.Default;
+
+    /// <summary>Optional diagonal text watermark.</summary>
+    public Watermark? Watermark { get; init; }
 
     /// <summary>
     /// Optional opening (title) page. When set, a first page is emitted even if <see cref="IncludeCover"/> is false.

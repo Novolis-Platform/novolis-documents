@@ -64,17 +64,45 @@ public sealed class LayoutTests
     };
 
     [Test]
-    public async Task Paginate_cover_suppresses_chrome_and_body_has_footer()
+    public async Task Paginate_cover_defaults_to_footer_only_and_body_has_footer()
     {
         var plan = DocumentPaginator.Paginate(SampleDocument(toc: false), new FakeTextMeasurer());
         await Assert.That(plan.Pages.Count).IsGreaterThanOrEqualTo(3);
         await Assert.That(plan.Pages[0].Kind).IsEqualTo(PageKind.Cover);
         await Assert.That(plan.Pages[0].ShowHeader).IsFalse();
-        await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
+        await Assert.That(plan.Pages[0].ShowFooter).IsTrue();
 
         var body = plan.Pages.Where(p => p.Kind == PageKind.Body).ToList();
         await Assert.That(body.Count).IsGreaterThanOrEqualTo(2);
         await Assert.That(body[0].ShowFooter).IsTrue();
+    }
+
+    [Test]
+    public async Task Paginate_chrome_options_can_quiet_front_matter()
+    {
+        var doc = SampleDocument(toc: true);
+        doc = new PagedDocument
+        {
+            Meta = doc.Meta,
+            Setup = doc.Setup,
+            Typography = doc.Typography,
+            IncludeCover = true,
+            IncludeToc = true,
+            Header = doc.Header,
+            Footer = doc.Footer,
+            Chrome = new ChromeOptions
+            {
+                First = ChromeBand.None,
+                Toc = ChromeBand.None,
+                Body = ChromeBand.HeaderAndFooter,
+                Last = ChromeBand.None,
+            },
+            Body = doc.Body,
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
+        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Toc).All(p => !p.ShowFooter)).IsTrue();
     }
 
     [Test]
