@@ -130,6 +130,40 @@ public sealed class ColumnsBlock : IBlock
     public IReadOnlyList<float>? Fractions { get; init; }
 }
 
+/// <summary>
+/// Bordered text panel (plain lines). Domain-agnostic frame for notes, datelines, callouts, etc.
+/// Layout may split across pages by line when content overflows.
+/// </summary>
+public sealed class TextBoxBlock : IBlock
+{
+    /// <summary>Lines drawn top-to-bottom inside the box.</summary>
+    public IReadOnlyList<string> Lines { get; init; } = [];
+
+    /// <summary>Inner padding in points.</summary>
+    public float PaddingPt { get; init; } = 6f;
+
+    /// <summary>Border stroke width in points (0 = no border).</summary>
+    public float BorderStrokePt { get; init; } = 0.8f;
+
+    /// <summary>Border ink.</summary>
+    public DocumentColor BorderColor { get; init; } = DocumentColor.Gray;
+
+    /// <summary>Optional fill behind the text (null = none).</summary>
+    public DocumentColor? Background { get; init; } = DocumentColor.LightGray;
+
+    /// <summary>Font size in points.</summary>
+    public float FontSizePt { get; init; } = 8.5f;
+
+    /// <summary>Line height multiplier.</summary>
+    public float LineHeight { get; init; } = 1.22f;
+
+    /// <summary>Extra gap between lines inside the box (points).</summary>
+    public float LineGapPt { get; init; } = 1.5f;
+
+    /// <summary>Ink color for lines.</summary>
+    public DocumentColor TextColor { get; init; } = DocumentColor.Gray;
+}
+
 /// <summary>Centered scene-break ornament.</summary>
 public sealed class SceneBreakBlock : IBlock
 {

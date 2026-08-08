@@ -107,6 +107,7 @@ Usually one page. When title lines / blocks do not fit, layout continues onto fu
 | `Table` | `TableBlock` via `TableBuilder` |
 | `Columns` | `ColumnsBlock` via `ColumnsBuilder` |
 | `Image(path\|bytes, w, h)` | `ImageBlock` |
+| `TextBox` | `TextBoxBlock` via `TextBoxBuilder` (border / fill / type options) |
 | `SceneBreak` | `SceneBreakBlock` |
 | `LineBreak` | Forced blank body line |
 | `PageBreak` / `BlankPage` | Explicit page breaks |

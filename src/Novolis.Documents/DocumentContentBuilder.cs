@@ -109,6 +109,15 @@ public sealed class DocumentContentBuilder
         return Add(columns.Build());
     }
 
+    /// <summary>Bordered text panel.</summary>
+    public DocumentContentBuilder TextBox(Action<TextBoxBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var box = new TextBoxBuilder();
+        configure(box);
+        return Add(box.Build());
+    }
+
     /// <summary>Centered scene-break ornament.</summary>
     public DocumentContentBuilder SceneBreak(string ornament = "***")
     {

@@ -285,6 +285,9 @@ public static class DocumentPaginator
                 case TableBlock table:
                     PlaceTable(table, document, measurer, width, contentHeight, ref y, blocks, Flush);
                     continue;
+                case TextBoxBlock textBox:
+                    PlaceTextBox(textBox, document, measurer, width, contentHeight, ref y, blocks, Flush);
+                    continue;
                 case HeadingBlock heading:
                 {
                     var height = MeasureBlock(heading, document, measurer, width);
@@ -407,6 +410,10 @@ public static class DocumentPaginator
                     continue;
                 case TableBlock table:
                     PlaceTable(table, document, measurer, width, contentHeight,
+                        ref y, blocks, Flush);
+                    continue;
+                case TextBoxBlock textBox:
+                    PlaceTextBox(textBox, document, measurer, width, contentHeight,
                         ref y, blocks, Flush);
                     continue;
                 case ColumnsBlock columns:
@@ -665,6 +672,74 @@ public static class DocumentPaginator
         return max + padding * 2f;
     }
 
+    static void PlaceTextBox(
+        TextBoxBlock box,
+        PagedDocument document,
+        ITextMeasurer measurer,
+        float width,
+        float contentHeight,
+        ref float y,
+        List<PlacedBlock> blocks,
+        Action flush)
+    {
+        var lines = box.Lines.Count == 0 ? (IReadOnlyList<string>)[string.Empty] : box.Lines;
+        var style = new TextStyle(document.Typography.BodyFontFamily, box.FontSizePt, box.LineHeight);
+        var textWidth = System.Math.Max(8f, width - box.PaddingPt * 2f);
+        var lineStep = System.Math.Max(1f, box.FontSizePt * box.LineHeight) + box.LineGapPt;
+        var pad = box.PaddingPt * 2f;
+
+        var index = 0;
+        while (index < lines.Count)
+        {
+            var chrome = pad;
+            if (y + chrome + lineStep > contentHeight && blocks.Count > 0)
+                flush();
+
+            var remaining = System.Math.Max(lineStep, contentHeight - y - chrome);
+            var maxLines = System.Math.Max(1, (int)(remaining / lineStep));
+            var take = System.Math.Min(maxLines, lines.Count - index);
+            var sliceLines = lines.Skip(index).Take(take).ToArray();
+            var height = chrome + take * lineStep;
+            // Measure wrapped lines in case a single line wraps taller than lineStep.
+            float measured = pad;
+            foreach (var line in sliceLines)
+                measured += System.Math.Max(lineStep, measurer.MeasureHeight(line, textWidth, style) + box.LineGapPt);
+            height = System.Math.Max(height, measured);
+
+            var slice = new TextBoxBlock
+            {
+                Lines = sliceLines,
+                PaddingPt = box.PaddingPt,
+                BorderStrokePt = box.BorderStrokePt,
+                BorderColor = box.BorderColor,
+                Background = box.Background,
+                FontSizePt = box.FontSizePt,
+                LineHeight = box.LineHeight,
+                LineGapPt = box.LineGapPt,
+                TextColor = box.TextColor,
+            };
+            blocks.Add(new PlacedBlock(slice, y, height));
+            y += height + document.Typography.ParagraphSpacingPt;
+            index += take;
+
+            if (index < lines.Count)
+                flush();
+        }
+    }
+
+    static float MeasureTextBox(TextBoxBlock box, ITextMeasurer measurer, float width)
+    {
+        var style = new TextStyle("serif", box.FontSizePt, box.LineHeight);
+        var textWidth = System.Math.Max(8f, width - box.PaddingPt * 2f);
+        var lineStep = System.Math.Max(1f, box.FontSizePt * box.LineHeight) + box.LineGapPt;
+        float total = box.PaddingPt * 2f;
+        if (box.Lines.Count == 0)
+            return total + lineStep;
+        foreach (var line in box.Lines)
+            total += System.Math.Max(lineStep, measurer.MeasureHeight(line, textWidth, style) + box.LineGapPt);
+        return total;
+    }
+
     static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
     {
         return block switch
@@ -672,6 +747,7 @@ public static class DocumentPaginator
             HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(document.Typography, h.Level)),
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             TableBlock t => MeasureTable(t, document, measurer, width),
+            TextBoxBlock box => MeasureTextBox(box, measurer, width),
             ImageBlock image => System.Math.Max(0f, image.HeightPt),
             ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,

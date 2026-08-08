@@ -11,6 +11,7 @@
 | `TableBlock` | Grid of string cells |
 | `ColumnsBlock` | Side-by-side block streams |
 | `ImageBlock` | Raster/SVG bytes or path |
+| `TextBoxBlock` | Bordered text panel (notes / panels); splits by line across pages |
 | `SceneBreakBlock` | Ornamental break between scenes |
 | `LineBreakBlock` | Forced blank body line |
 | `PageBreakBlock` | Force a new page in the current region (Body / First / Last) |
@@ -103,6 +104,29 @@ new ImageBlock
 ```
 
 Skia paints rasters and SVG (via Svg.Skia). Prefer explicit size so layout can reserve space before decode.
+
+## TextBoxBlock
+
+Bordered panel of plain lines. Domain-agnostic (callouts, notes, sidebars — consumers supply the lines).
+
+```csharp
+new TextBoxBlock
+{
+    Lines = ["2497.110 17:40", "System Y982283", "Earth Fleet battlecruiser, Quartermaster's office"],
+    PaddingPt = 6f,
+    BorderStrokePt = 0.8f,
+    BorderColor = DocumentColor.Gray,
+    Background = DocumentColor.LightGray,
+    FontSizePt = 8.5f,
+    LineHeight = 1.22f,
+    LineGapPt = 1.5f,
+    TextColor = DocumentColor.Gray,
+}
+```
+
+Fluent: `.TextBox(t => t.Lines("…").Padding(6f).Border(0.8f).Background(DocumentColor.LightGray).Font(8.5f))`.
+
+Layout splits by line when the box no longer fits the page (each slice keeps the same border/fill options).
 
 ## SceneBreakBlock / PageBreakBlock / BlankPageBlock
 

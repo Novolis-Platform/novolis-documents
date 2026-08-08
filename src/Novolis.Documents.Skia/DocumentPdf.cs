@@ -198,6 +198,9 @@ public static class DocumentPdf
             case TableBlock table:
                 DrawTable(canvas, document, table, typeface, boldTypeface, x, y, width);
                 break;
+            case TextBoxBlock textBox:
+                DrawTextBox(canvas, textBox, typeface, x, y, width);
+                break;
             case ImageBlock image:
                 DrawImage(canvas, image, x, y);
                 break;
@@ -380,6 +383,77 @@ public static class DocumentPdf
         canvas.Scale(scale);
         canvas.DrawPicture(svg.Picture);
         canvas.Restore();
+    }
+
+    static void DrawTextBox(
+        SKCanvas canvas,
+        TextBoxBlock box,
+        SKTypeface typeface,
+        float x,
+        float y,
+        float width)
+    {
+        var pad = System.Math.Max(0f, box.PaddingPt);
+        var fontSize = System.Math.Max(6f, box.FontSizePt);
+        var lineStep = fontSize * System.Math.Max(1f, box.LineHeight);
+        var gap = System.Math.Max(0f, box.LineGapPt);
+        var lines = box.Lines.Count == 0 ? (IReadOnlyList<string>)[string.Empty] : box.Lines;
+        var textWidth = System.Math.Max(8f, width - pad * 2f);
+
+        using var font = new SKFont(typeface, fontSize);
+        float contentH = 0f;
+        var wrapped = new List<IReadOnlyList<string>>(lines.Count);
+        foreach (var line in lines)
+        {
+            var parts = WrapLines(line, font, textWidth);
+            wrapped.Add(parts);
+            contentH += parts.Count * lineStep + gap;
+        }
+
+        var height = pad * 2f + contentH;
+
+        if (box.Background is { } bg)
+        {
+            using var fill = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(bg.R, bg.G, bg.B),
+                Style = SKPaintStyle.Fill,
+            };
+            canvas.DrawRect(x, y, width, height, fill);
+        }
+
+        if (box.BorderStrokePt > 0f)
+        {
+            var bc = box.BorderColor;
+            using var border = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(bc.R, bc.G, bc.B),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = box.BorderStrokePt,
+            };
+            canvas.DrawRect(x, y, width, height, border);
+        }
+
+        var ink = box.TextColor;
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(ink.R, ink.G, ink.B),
+        };
+
+        var ty = y + pad + fontSize;
+        foreach (var parts in wrapped)
+        {
+            foreach (var part in parts)
+            {
+                canvas.DrawText(part, x + pad, ty, SKTextAlign.Left, font, paint);
+                ty += lineStep;
+            }
+
+            ty += gap;
+        }
     }
 
     static void DrawTable(
