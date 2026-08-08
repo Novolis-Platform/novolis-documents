@@ -8,7 +8,7 @@
 
 # Novolis.Documents.Layout
 
-One-column book pagination: cover, optional TOC, H1 page breaks, running chrome flags. Depends on `ITextMeasurer` so unit tests need no Skia.
+One-column pagination: cover, optional TOC, H1 page breaks, running chrome flags. Depends on `ITextMeasurer` so unit tests need no Skia.
 
 ## Install
 
@@ -21,7 +21,7 @@ dotnet add package Novolis.Documents.Layout
 ```csharp
 using Novolis.Documents.Layout;
 
-var plan = BookPaginator.Paginate(book, measurer);
+var plan = DocumentPaginator.Paginate(document, measurer);
 foreach (var page in plan.Pages)
     Console.WriteLine($"{page.Number}: {page.Kind} ({page.Blocks.Count} blocks)");
 ```
@@ -30,7 +30,7 @@ foreach (var page in plan.Pages)
 
 | Package | When to use |
 |---------|-------------|
-| `Novolis.Documents` | Book model |
+| `Novolis.Documents` | Document model |
 | `Novolis.Documents.Skia` | PDF paint + real measurer |
 
 ## Support

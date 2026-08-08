@@ -3,19 +3,19 @@ using Novolis.Math.Measure;
 
 namespace Novolis.Documents.Layout;
 
-/// <summary>One-column book paginator (dumb layout — not a constraint engine).</summary>
-public static class BookPaginator
+/// <summary>One-column document paginator (dumb layout — not a constraint engine).</summary>
+public static class DocumentPaginator
 {
-    /// <summary>Builds a <see cref="PagePlan"/> for <paramref name="book"/>.</summary>
-    public static PagePlan Paginate(BookDocument book, ITextMeasurer measurer)
+    /// <summary>Builds a <see cref="PagePlan"/> for <paramref name="document"/>.</summary>
+    public static PagePlan Paginate(PagedDocument document, ITextMeasurer measurer)
     {
-        ArgumentNullException.ThrowIfNull(book);
+        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(measurer);
 
         var pages = new List<PageSlice>();
-        var chapterPageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var h1PageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        if (book.IncludeCover)
+        if (document.IncludeCover)
         {
             pages.Add(new PageSlice
             {
@@ -29,12 +29,12 @@ public static class BookPaginator
 
         // First pass: body only (no TOC yet) to discover H1 page numbers.
         var bodyStartNumber = pages.Count + 1;
-        var bodyPages = PaginateBody(book, measurer, bodyStartNumber, chapterPageNumbers);
+        var bodyPages = PaginateBody(document, measurer, bodyStartNumber, h1PageNumbers);
 
         List<TocEntry> tocEntries = [];
-        if (book.IncludeToc)
+        if (document.IncludeToc)
         {
-            tocEntries = chapterPageNumbers
+            tocEntries = h1PageNumbers
                 .Select(kv => new TocEntry(kv.Key, kv.Value))
                 .OrderBy(e => e.PageNumber)
                 .ThenBy(e => e.Title, StringComparer.Ordinal)
@@ -42,9 +42,9 @@ public static class BookPaginator
 
             // Re-paginate: cover → TOC → body (TOC shifts body page numbers).
             pages.Clear();
-            chapterPageNumbers.Clear();
+            h1PageNumbers.Clear();
 
-            if (book.IncludeCover)
+            if (document.IncludeCover)
             {
                 pages.Add(new PageSlice
                 {
@@ -56,32 +56,32 @@ public static class BookPaginator
                 });
             }
 
-            var tocPageCount = EstimateTocPageCount(book, measurer, tocEntries);
+            var tocPageCount = EstimateTocPageCount(document, measurer, tocEntries);
             var tocStart = pages.Count + 1;
             // Temporary TOC pages; body page numbers assume tocPageCount slots.
             bodyStartNumber = tocStart + tocPageCount;
-            bodyPages = PaginateBody(book, measurer, bodyStartNumber, chapterPageNumbers);
-            tocEntries = chapterPageNumbers
+            bodyPages = PaginateBody(document, measurer, bodyStartNumber, h1PageNumbers);
+            tocEntries = h1PageNumbers
                 .Select(kv => new TocEntry(kv.Key, kv.Value))
                 .OrderBy(e => e.PageNumber)
                 .ThenBy(e => e.Title, StringComparer.Ordinal)
                 .ToList();
 
-            pages.AddRange(BuildTocPages(book, measurer, tocEntries, tocStart));
+            pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
             // Renumber body pages after actual TOC length (should match estimate for v1).
             var actualBodyStart = pages.Count + 1;
             if (actualBodyStart != bodyStartNumber)
             {
-                chapterPageNumbers.Clear();
-                bodyPages = PaginateBody(book, measurer, actualBodyStart, chapterPageNumbers);
-                tocEntries = chapterPageNumbers
+                h1PageNumbers.Clear();
+                bodyPages = PaginateBody(document, measurer, actualBodyStart, h1PageNumbers);
+                tocEntries = h1PageNumbers
                     .Select(kv => new TocEntry(kv.Key, kv.Value))
                     .OrderBy(e => e.PageNumber)
                     .ThenBy(e => e.Title, StringComparer.Ordinal)
                     .ToList();
                 // Rebuild TOC with final numbers (same page count expected).
                 pages.RemoveAll(p => p.Kind == PageKind.Toc);
-                pages.AddRange(BuildTocPages(book, measurer, tocEntries, tocStart));
+                pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
             }
 
             pages.AddRange(bodyPages);
@@ -91,17 +91,17 @@ public static class BookPaginator
             pages.AddRange(bodyPages);
         }
 
-        if (book.Last is { Lines.Count: > 0 } last)
+        if (document.Last is { Lines.Count: > 0 } last)
         {
             var n = pages.Count + 1;
             var blocks = new List<PlacedBlock>();
             float y = 0;
             foreach (var line in last.Lines)
             {
-                var style = BodyStyle(book.Typography);
-                var h = measurer.MeasureHeight(line, ContentWidth(book), style);
+                var style = BodyStyle(document.Typography);
+                var h = measurer.MeasureHeight(line, ContentWidth(document), style);
                 blocks.Add(new PlacedBlock(new ParagraphBlock { Text = line }, y, h));
-                y += h + book.Typography.ParagraphSpacingPt;
+                y += h + document.Typography.ParagraphSpacingPt;
             }
 
             pages.Add(new PageSlice
@@ -110,7 +110,7 @@ public static class BookPaginator
                 Number = n,
                 Blocks = blocks,
                 ShowHeader = false,
-                ShowFooter = book.Footer is not null,
+                ShowFooter = document.Footer is not null,
             });
         }
 
@@ -134,30 +134,30 @@ public static class BookPaginator
         return new PagePlan { Pages = pages, TocEntries = tocEntries };
     }
 
-    static int EstimateTocPageCount(BookDocument book, ITextMeasurer measurer, IReadOnlyList<TocEntry> entries)
+    static int EstimateTocPageCount(PagedDocument document, ITextMeasurer measurer, IReadOnlyList<TocEntry> entries)
     {
         if (entries.Count == 0)
             return 1;
-        return System.Math.Max(1, BuildTocPages(book, measurer, entries, startNumber: 1).Count);
+        return System.Math.Max(1, BuildTocPages(document, measurer, entries, startNumber: 1).Count);
     }
 
     static List<PageSlice> BuildTocPages(
-        BookDocument book,
+        PagedDocument document,
         ITextMeasurer measurer,
         IReadOnlyList<TocEntry> entries,
         int startNumber)
     {
         var pages = new List<PageSlice>();
-        var contentHeight = ContentHeight(book);
-        var width = ContentWidth(book);
-        var titleStyle = new TextStyle(book.Typography.BodyFontFamily, 16f, book.Typography.LineHeight, Bold: true);
-        var lineStyle = BodyStyle(book.Typography);
+        var contentHeight = ContentHeight(document);
+        var width = ContentWidth(document);
+        var titleStyle = new TextStyle(document.Typography.BodyFontFamily, 16f, document.Typography.LineHeight, Bold: true);
+        var lineStyle = BodyStyle(document.Typography);
 
         var blocks = new List<PlacedBlock>();
         float y = 0;
         var titleH = measurer.MeasureHeight("Contents", width, titleStyle);
         blocks.Add(new PlacedBlock(new HeadingBlock { Level = 2, Text = "Contents" }, y, titleH));
-        y += titleH + book.Typography.ParagraphSpacingPt * 2;
+        y += titleH + document.Typography.ParagraphSpacingPt * 2;
 
         void Flush(int number)
         {
@@ -167,7 +167,7 @@ public static class BookPaginator
                 Number = number,
                 Blocks = blocks.ToList(),
                 ShowHeader = false,
-                ShowFooter = book.Footer is not null,
+                ShowFooter = document.Footer is not null,
             });
             blocks = [];
             y = 0;
@@ -184,7 +184,7 @@ public static class BookPaginator
             }
 
             blocks.Add(new PlacedBlock(new ParagraphBlock { Text = text }, y, h));
-            y += h + book.Typography.ParagraphSpacingPt;
+            y += h + document.Typography.ParagraphSpacingPt;
         }
 
         if (blocks.Count > 0)
@@ -198,7 +198,7 @@ public static class BookPaginator
                 Number = startNumber,
                 Blocks = [new PlacedBlock(new HeadingBlock { Level = 2, Text = "Contents" }, 0, titleH)],
                 ShowHeader = false,
-                ShowFooter = book.Footer is not null,
+                ShowFooter = document.Footer is not null,
             });
         }
 
@@ -206,14 +206,14 @@ public static class BookPaginator
     }
 
     static List<PageSlice> PaginateBody(
-        BookDocument book,
+        PagedDocument document,
         ITextMeasurer measurer,
         int startNumber,
-        Dictionary<string, int> chapterPageNumbers)
+        Dictionary<string, int> h1PageNumbers)
     {
         var pages = new List<PageSlice>();
-        var contentHeight = ContentHeight(book);
-        var width = ContentWidth(book);
+        var contentHeight = ContentHeight(document);
+        var width = ContentWidth(document);
         var blocks = new List<PlacedBlock>();
         float y = 0;
         var pageNumber = startNumber;
@@ -228,9 +228,9 @@ public static class BookPaginator
                 Kind = PageKind.Body,
                 Number = pageNumber,
                 Blocks = blocks.ToList(),
-                ShowHeader = book.Header is not null
-                    && !(book.SuppressHeaderOnChapterOpen && opensWithH1),
-                ShowFooter = book.Footer is not null,
+                ShowHeader = document.Header is not null
+                    && !(document.SuppressHeaderOnH1Open && opensWithH1),
+                ShowFooter = document.Footer is not null,
             });
             pageNumber++;
             blocks = [];
@@ -238,7 +238,7 @@ public static class BookPaginator
             pageOpensWithH1 = false;
         }
 
-        foreach (var block in book.Body)
+        foreach (var block in document.Body)
         {
             switch (block)
             {
@@ -253,26 +253,26 @@ public static class BookPaginator
                         Number = pageNumber++,
                         Blocks = [],
                         ShowHeader = false,
-                        ShowFooter = book.Footer is not null,
+                        ShowFooter = document.Footer is not null,
                     });
                     continue;
                 case HeadingBlock { Level: 1 } h1:
                     if (blocks.Count > 0)
                         Flush(pageOpensWithH1);
                     pageOpensWithH1 = true;
-                    chapterPageNumbers[h1.Text] = pageNumber;
+                    h1PageNumbers[h1.Text] = pageNumber;
                     {
-                        var style = HeadingStyle(book.Typography, 1);
+                        var style = HeadingStyle(document.Typography, 1);
                         var h = measurer.MeasureHeight(h1.Text, width, style);
                         blocks.Add(new PlacedBlock(h1, y, h));
-                        y += h + book.Typography.ParagraphSpacingPt;
+                        y += h + document.Typography.ParagraphSpacingPt;
                     }
                     continue;
                 case CoverBlock or TocBlock:
                     continue;
             }
 
-            var height = MeasureBlock(block, book, measurer, width);
+            var height = MeasureBlock(block, document, measurer, width);
             if (y + height > contentHeight && blocks.Count > 0)
                 Flush(pageOpensWithH1);
 
@@ -280,32 +280,32 @@ public static class BookPaginator
                 pageOpensWithH1 = true;
 
             blocks.Add(new PlacedBlock(block, y, height));
-            y += height + book.Typography.ParagraphSpacingPt;
+            y += height + document.Typography.ParagraphSpacingPt;
         }
 
         Flush(pageOpensWithH1);
         return pages;
     }
 
-    static float MeasureBlock(IBlock block, BookDocument book, ITextMeasurer measurer, float width)
+    static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
     {
         return block switch
         {
-            HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(book.Typography, h.Level)),
-            ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(book.Typography)),
+            HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(document.Typography, h.Level)),
+            ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,
-                new TextStyle(book.Typography.BodyFontFamily, book.Typography.SceneBreakSizePt, 1f)),
-            _ => book.Typography.ParagraphSpacingPt,
+                new TextStyle(document.Typography.BodyFontFamily, document.Typography.SceneBreakSizePt, 1f)),
+            _ => document.Typography.ParagraphSpacingPt,
         };
     }
 
-    static float ContentWidth(BookDocument book) =>
-        book.Setup.Trim.Width.Points - book.Setup.Margin.Horizontal.Points;
+    static float ContentWidth(PagedDocument document) =>
+        document.Setup.Trim.Width.Points - document.Setup.Margin.Horizontal.Points;
 
-    static float ContentHeight(BookDocument book)
+    static float ContentHeight(PagedDocument document)
     {
-        var chrome = book.Setup.HeaderBand.Points + book.Setup.FooterBand.Points;
-        return book.Setup.Trim.Height.Points - book.Setup.Margin.Vertical.Points - chrome;
+        var chrome = document.Setup.HeaderBand.Points + document.Setup.FooterBand.Points;
+        return document.Setup.Trim.Height.Points - document.Setup.Margin.Vertical.Points - chrome;
     }
 
     static TextStyle BodyStyle(Typography t) =>
@@ -314,7 +314,7 @@ public static class BookPaginator
     static TextStyle HeadingStyle(Typography t, int level) =>
         level switch
         {
-            1 => new TextStyle(t.BodyFontFamily, t.ChapterTitleSizePt, t.LineHeight, Bold: true),
+            1 => new TextStyle(t.BodyFontFamily, t.H1SizePt, t.LineHeight, Bold: true),
             2 => new TextStyle(t.BodyFontFamily, t.H2SizePt, t.LineHeight, Bold: true),
             _ => new TextStyle(t.BodyFontFamily, t.H3SizePt, t.LineHeight, Bold: true),
         };

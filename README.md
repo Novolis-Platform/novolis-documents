@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>Narrow book PDF island</strong><br/>
+  <strong>Narrow paged PDF island</strong><br/>
   Document model, one-column layout, SkiaSharp PDF — not a QuestPDF clone.
 </p>
 
@@ -42,7 +42,7 @@
 
 # novolis-documents
 
-MIT book PDF island for Novolis: customary trims (6×9 primary), cover / TOC / body / chrome, Skia paint.
+MIT paged PDF island for Novolis: customary trims (6×9 primary), cover / TOC / body / chrome, Skia paint. Domain-agnostic public API.
 
 See [docs/design.md](docs/design.md) and [docs/getting-started.md](docs/getting-started.md).
 

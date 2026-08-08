@@ -2,7 +2,7 @@
 
 ## Position
 
-`novolis-documents` is an **orthogonal island**: book PDF model → pagination → Skia paint. It is not on the Math→Physics→Simulation spine (except consuming `Novolis.Math.Measure`). No Avalonia, Simulation, Rendering, or Raylib dependencies.
+`novolis-documents` is an **orthogonal island**: paged document model → pagination → Skia paint. It is not on the Math→Physics→Simulation spine (except consuming `Novolis.Math.Measure`). No Avalonia, Simulation, Rendering, or Raylib dependencies.
 
 ## Packages
 
@@ -18,9 +18,9 @@ Novolis.Documents.Skia   (+ SkiaSharp)
 
 | Package | Role |
 |---------|------|
-| `Novolis.Documents` | `BookDocument`, blocks, trim presets, chrome |
-| `Novolis.Documents.Layout` | `BookPaginator`, `PagePlan`, `ITextMeasurer` |
-| `Novolis.Documents.Skia` | `BookPdf.Write` / `ToBytes` |
+| `Novolis.Documents` | `PagedDocument`, blocks, trim presets, chrome |
+| `Novolis.Documents.Layout` | `DocumentPaginator`, `PagePlan`, `ITextMeasurer` |
+| `Novolis.Documents.Skia` | `DocumentPdf.Write` / `ToBytes` |
 
 ## Hard non-goals (v1)
 
@@ -28,14 +28,15 @@ Novolis.Documents.Skia   (+ SkiaSharp)
 - Tables, images, lists, code blocks, footnotes, multi-column
 - Markdown/Markdig inside this repo
 - Competing as a general-purpose PDF SDK
+- Domain-specific product vocabulary in the public API (no book/manuscript/fiction types)
 
 ## Chrome rules
 
 - Cover: no running header/footer
 - TOC: footer page numbers only
-- Body: header + footer; optional suppress header on chapter-open pages
+- Body: header + footer; optional suppress header on H1-open pages
 - Last: optional colophon
 
-## Manuscript
+## Consumers
 
-Books-grade QuestPDF remains the default Manuscript exporter until this island proves acceptance on real book trees. No Manuscript adapter in v1.
+Higher-level product exporters (e.g. manuscript) may map into `PagedDocument`. This repo stays domain-agnostic.

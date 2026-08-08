@@ -24,7 +24,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer
 
         var typeface = style.Bold ? _bold : _regular;
         using var font = new SKFont(typeface, style.FontSizePt);
-        var lines = BookPdf.WrapLines(text, font, widthPt);
+        var lines = DocumentPdf.WrapLines(text, font, widthPt);
         return System.Math.Max(style.FontSizePt, lines.Count * style.FontSizePt * style.LineHeight);
     }
 }

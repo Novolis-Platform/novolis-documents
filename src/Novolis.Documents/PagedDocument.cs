@@ -1,13 +1,13 @@
 namespace Novolis.Documents;
 
 /// <summary>
-/// Immutable book document: data model only (no fluent layout DSL).
+/// Immutable paged document: data model only (no fluent layout DSL).
 /// Consumers map Markdown or other sources into this shape.
 /// </summary>
-public sealed class BookDocument
+public sealed class PagedDocument
 {
     /// <summary>Cover / chrome metadata.</summary>
-    public required BookMeta Meta { get; init; }
+    public required DocumentMeta Meta { get; init; }
 
     /// <summary>Trim and margins.</summary>
     public required PageSetup Setup { get; init; }
@@ -34,5 +34,5 @@ public sealed class BookDocument
     public LastPage? Last { get; init; }
 
     /// <summary>When true, suppress header on pages that open with an H1.</summary>
-    public bool SuppressHeaderOnChapterOpen { get; init; } = true;
+    public bool SuppressHeaderOnH1Open { get; init; } = true;
 }

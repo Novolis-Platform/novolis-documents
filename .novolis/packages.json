@@ -2,11 +2,11 @@
   "packages": {
     "Novolis.Documents": {
       "path": "src/Novolis.Documents/Novolis.Documents.csproj",
-      "description": "Book document model"
+      "description": "Paged document model"
     },
     "Novolis.Documents.Layout": {
       "path": "src/Novolis.Documents.Layout/Novolis.Documents.Layout.csproj",
-      "description": "One-column book pagination"
+      "description": "One-column document pagination"
     },
     "Novolis.Documents.Skia": {
       "path": "src/Novolis.Documents.Skia/Novolis.Documents.Skia.csproj",

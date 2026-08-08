@@ -8,7 +8,7 @@
 
 # Novolis.Documents
 
-Book document model for Novolis: trim presets, typography, running chrome, and a closed set of content blocks. No Skia, no Markdown — map sources into `BookDocument` then paginate with `Novolis.Documents.Layout`.
+Paged document model for Novolis: trim presets, typography, running chrome, and a closed set of content blocks. No Skia, no Markdown — map sources into `PagedDocument` then paginate with `Novolis.Documents.Layout`.
 
 ## Install
 
@@ -22,13 +22,13 @@ dotnet add package Novolis.Documents
 using Novolis.Documents;
 using Novolis.Math.Measure;
 
-var book = new BookDocument
+var document = new PagedDocument
 {
-    Meta = new BookMeta { Title = "Duckville", Author = "Example" },
+    Meta = new DocumentMeta { Title = "Sample", Author = "Example" },
     Setup = new PageSetup
     {
-        Trim = TrimPresets.TradePaperback6x9,
-        Margin = TrimPresets.DefaultBookMargin,
+        Trim = TrimPresets.Inch6x9,
+        Margin = TrimPresets.DefaultMargin,
     },
     Typography = new Typography(),
     IncludeCover = true,
@@ -37,7 +37,7 @@ var book = new BookDocument
     Footer = new RunningChrome { Template = "{page}" },
     Body =
     [
-        new HeadingBlock { Level = 1, Text = "Chapter 1" },
+        new HeadingBlock { Level = 1, Text = "Section One" },
         new ParagraphBlock { Text = "Once upon a time…" },
     ],
 };

@@ -1,9 +1,7 @@
-using Novolis.Math.Measure;
-
 namespace Novolis.Documents;
 
-/// <summary>Book metadata shown on the cover and optional chrome.</summary>
-public sealed class BookMeta
+/// <summary>Document metadata shown on the cover and optional chrome.</summary>
+public sealed class DocumentMeta
 {
     /// <summary>Primary title.</summary>
     public required string Title { get; init; }
@@ -11,7 +9,7 @@ public sealed class BookMeta
     /// <summary>Optional subtitle.</summary>
     public string? Subtitle { get; init; }
 
-    /// <summary>Optional series name.</summary>
+    /// <summary>Optional series or collection name.</summary>
     public string? Series { get; init; }
 
     /// <summary>Optional author line.</summary>

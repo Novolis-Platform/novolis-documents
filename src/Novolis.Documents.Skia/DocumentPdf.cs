@@ -6,7 +6,7 @@ using SkiaSharp;
 namespace Novolis.Documents.Skia;
 
 /// <summary>Options for PDF generation.</summary>
-public sealed class BookPdfOptions
+public sealed class DocumentPdfOptions
 {
     /// <summary>Optional path to a body TrueType/OpenType font file.</summary>
     public string? BodyFontPath { get; init; }
@@ -15,14 +15,14 @@ public sealed class BookPdfOptions
     public string? BoldFontPath { get; init; }
 }
 
-/// <summary>Writes a <see cref="BookDocument"/> to PDF via SkiaSharp.</summary>
-public static class BookPdf
+/// <summary>Writes a <see cref="PagedDocument"/> to PDF via SkiaSharp.</summary>
+public static class DocumentPdf
 {
     /// <summary>Writes a PDF file.</summary>
-    public static void Write(BookDocument book, string path, BookPdfOptions? options = null)
+    public static void Write(PagedDocument document, string path, DocumentPdfOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var bytes = ToBytes(book, options);
+        var bytes = ToBytes(document, options);
         var dir = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
@@ -30,31 +30,31 @@ public static class BookPdf
     }
 
     /// <summary>Generates PDF bytes.</summary>
-    public static byte[] ToBytes(BookDocument book, BookPdfOptions? options = null)
+    public static byte[] ToBytes(PagedDocument document, DocumentPdfOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(book);
-        options ??= new BookPdfOptions();
+        ArgumentNullException.ThrowIfNull(document);
+        options ??= new DocumentPdfOptions();
 
         using var typeface = LoadTypeface(options.BodyFontPath, bold: false);
         using var boldTypeface = LoadTypeface(options.BoldFontPath ?? options.BodyFontPath, bold: true);
         var measurer = new SkiaTextMeasurer(typeface, boldTypeface);
-        var plan = BookPaginator.Paginate(book, measurer);
+        var plan = DocumentPaginator.Paginate(document, measurer);
 
         using var stream = new MemoryStream();
-        using (var document = SKDocument.CreatePdf(stream))
+        using (var pdf = SKDocument.CreatePdf(stream))
         {
-            ArgumentNullException.ThrowIfNull(document);
-            var width = book.Setup.Trim.Width.Points;
-            var height = book.Setup.Trim.Height.Points;
+            ArgumentNullException.ThrowIfNull(pdf);
+            var width = document.Setup.Trim.Width.Points;
+            var height = document.Setup.Trim.Height.Points;
 
             foreach (var page in plan.Pages)
             {
-                using var canvas = document.BeginPage(width, height);
-                DrawPage(canvas, book, page, typeface, boldTypeface, measurer);
-                document.EndPage();
+                using var canvas = pdf.BeginPage(width, height);
+                DrawPage(canvas, document, page, typeface, boldTypeface, measurer);
+                pdf.EndPage();
             }
 
-            document.Close();
+            pdf.Close();
         }
 
         return stream.ToArray();
@@ -62,58 +62,58 @@ public static class BookPdf
 
     static void DrawPage(
         SKCanvas canvas,
-        BookDocument book,
+        PagedDocument document,
         PageSlice page,
         SKTypeface typeface,
         SKTypeface boldTypeface,
         SkiaTextMeasurer measurer)
     {
         canvas.Clear(SKColors.White);
-        var margin = book.Setup.Margin;
+        var margin = document.Setup.Margin;
         var contentX = margin.Left.Points;
-        var contentTop = margin.Top.Points + book.Setup.HeaderBand.Points;
-        var contentWidth = book.Setup.Trim.Width.Points - margin.Horizontal.Points;
-        var pageWidth = book.Setup.Trim.Width.Points;
-        var pageHeight = book.Setup.Trim.Height.Points;
+        var contentTop = margin.Top.Points + document.Setup.HeaderBand.Points;
+        var contentWidth = document.Setup.Trim.Width.Points - margin.Horizontal.Points;
+        var pageWidth = document.Setup.Trim.Width.Points;
+        var pageHeight = document.Setup.Trim.Height.Points;
 
         if (page.Kind == PageKind.Cover)
         {
-            DrawCover(canvas, book, typeface, boldTypeface, pageWidth, pageHeight);
+            DrawCover(canvas, document, typeface, boldTypeface, pageWidth, pageHeight);
             return;
         }
 
-        if (page.ShowHeader && book.Header is { } header)
+        if (page.ShowHeader && document.Header is { } header)
         {
-            var text = FormatChrome(header.Template, book, page.Number);
+            var text = FormatChrome(header.Template, document, page.Number);
             DrawCenteredText(canvas, text, typeface, header.FontSizePt,
-                contentX, margin.Top.Points, contentWidth, book.Setup.HeaderBand.Points);
+                contentX, margin.Top.Points, contentWidth, document.Setup.HeaderBand.Points);
         }
 
         foreach (var placed in page.Blocks)
         {
             var y = contentTop + placed.YInContentPt;
-            DrawBlock(canvas, book, placed.Block, typeface, boldTypeface, measurer,
+            DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
                 contentX, y, contentWidth);
         }
 
-        if (page.ShowFooter && book.Footer is { } footer)
+        if (page.ShowFooter && document.Footer is { } footer)
         {
-            var text = FormatChrome(footer.Template, book, page.Number);
-            var footerY = pageHeight - margin.Bottom.Points - book.Setup.FooterBand.Points;
+            var text = FormatChrome(footer.Template, document, page.Number);
+            var footerY = pageHeight - margin.Bottom.Points - document.Setup.FooterBand.Points;
             DrawCenteredText(canvas, text, typeface, footer.FontSizePt,
-                contentX, footerY, contentWidth, book.Setup.FooterBand.Points);
+                contentX, footerY, contentWidth, document.Setup.FooterBand.Points);
         }
     }
 
     static void DrawCover(
         SKCanvas canvas,
-        BookDocument book,
+        PagedDocument document,
         SKTypeface typeface,
         SKTypeface boldTypeface,
         float pageWidth,
         float pageHeight)
     {
-        var meta = book.Meta;
+        var meta = document.Meta;
         float y = pageHeight * 0.35f;
         DrawCenteredText(canvas, meta.Title, boldTypeface, 22f, 40, y, pageWidth - 80, 40);
         y += 36;
@@ -143,7 +143,7 @@ public static class BookPdf
 
     static void DrawBlock(
         SKCanvas canvas,
-        BookDocument book,
+        PagedDocument document,
         IBlock block,
         SKTypeface typeface,
         SKTypeface boldTypeface,
@@ -157,19 +157,19 @@ public static class BookPdf
             case HeadingBlock h:
                 var hs = h.Level switch
                 {
-                    1 => book.Typography.ChapterTitleSizePt,
-                    2 => book.Typography.H2SizePt,
-                    _ => book.Typography.H3SizePt,
+                    1 => document.Typography.H1SizePt,
+                    2 => document.Typography.H2SizePt,
+                    _ => document.Typography.H3SizePt,
                 };
-                DrawWrappedText(canvas, h.Text, boldTypeface, hs, book.Typography.LineHeight, x, y, width);
+                DrawWrappedText(canvas, h.Text, boldTypeface, hs, document.Typography.LineHeight, x, y, width);
                 break;
             case ParagraphBlock p:
-                DrawWrappedText(canvas, p.Text, typeface, book.Typography.BodyFontSizePt,
-                    book.Typography.LineHeight, x, y, width);
+                DrawWrappedText(canvas, p.Text, typeface, document.Typography.BodyFontSizePt,
+                    document.Typography.LineHeight, x, y, width);
                 break;
             case SceneBreakBlock s:
-                DrawCenteredText(canvas, s.Ornament, typeface, book.Typography.SceneBreakSizePt,
-                    x, y, width, book.Typography.SceneBreakSizePt * 1.2f);
+                DrawCenteredText(canvas, s.Ornament, typeface, document.Typography.SceneBreakSizePt,
+                    x, y, width, document.Typography.SceneBreakSizePt * 1.2f);
                 break;
             case CoverBlock:
                 break;
@@ -258,10 +258,10 @@ public static class BookPdf
         return result;
     }
 
-    static string FormatChrome(string template, BookDocument book, int pageNumber) =>
+    static string FormatChrome(string template, PagedDocument document, int pageNumber) =>
         template
             .Replace("{page}", pageNumber.ToString(), StringComparison.OrdinalIgnoreCase)
-            .Replace("{title}", book.Meta.Title, StringComparison.OrdinalIgnoreCase);
+            .Replace("{title}", document.Meta.Title, StringComparison.OrdinalIgnoreCase);
 
     static SKTypeface LoadTypeface(string? path, bool bold)
     {

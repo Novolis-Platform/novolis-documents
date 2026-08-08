@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Documents.Layout</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>One-column book pagination: page plans, text measuring abstraction, chapter breaks.</Description>
+    <Description>One-column pagination: page plans, text measuring abstraction, H1 breaks.</Description>
     <RootNamespace>Novolis.Documents.Layout</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

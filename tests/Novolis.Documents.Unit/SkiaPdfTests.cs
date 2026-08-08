@@ -7,15 +7,15 @@ namespace Novolis.Documents.Unit;
 public sealed class SkiaPdfTests
 {
     [Test]
-    public async Task ToBytes_trade_paperback_has_cover_chapters_and_bytes()
+    public async Task ToBytes_inch6x9_has_cover_sections_and_bytes()
     {
-        var book = new BookDocument
+        var document = new PagedDocument
         {
-            Meta = new BookMeta { Title = "Duckville", Author = "Tester" },
+            Meta = new DocumentMeta { Title = "Sample", Author = "Tester" },
             Setup = new PageSetup
             {
-                Trim = TrimPresets.TradePaperback6x9,
-                Margin = TrimPresets.DefaultBookMargin,
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
             },
             Typography = new Typography(),
             IncludeCover = true,
@@ -24,16 +24,15 @@ public sealed class SkiaPdfTests
             Header = new RunningChrome { Template = "{title}" },
             Body =
             [
-                new HeadingBlock { Level = 1, Text = "Chapter One" },
-                new ParagraphBlock { Text = "The river ran cold through Duckville." },
-                new HeadingBlock { Level = 1, Text = "Chapter Two" },
+                new HeadingBlock { Level = 1, Text = "Section One" },
+                new ParagraphBlock { Text = "The river ran cold through the valley." },
+                new HeadingBlock { Level = 1, Text = "Section Two" },
                 new ParagraphBlock { Text = "Morning light found the bridge empty." },
             ],
         };
 
-        var bytes = BookPdf.ToBytes(book);
+        var bytes = DocumentPdf.ToBytes(document);
         await Assert.That(bytes.Length).IsGreaterThan(500);
-        // PDF magic
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
         await Assert.That(bytes[1]).IsEqualTo((byte)'P');
     }

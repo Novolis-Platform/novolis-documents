@@ -8,7 +8,7 @@
 
 # Novolis.Documents.Skia
 
-SkiaSharp PDF writer for `BookDocument`. Implements `ITextMeasurer` and paints cover, TOC, body, and chrome. No Skia types leak into `Novolis.Documents` / `.Layout` public APIs.
+SkiaSharp PDF writer for `PagedDocument`. Implements `ITextMeasurer` and paints cover, TOC, body, and chrome. No Skia types leak into `Novolis.Documents` / `.Layout` public APIs.
 
 ## Install
 
@@ -21,15 +21,15 @@ dotnet add package Novolis.Documents.Skia
 ```csharp
 using Novolis.Documents.Skia;
 
-BookPdf.Write(book, @"C:\temp\book.pdf");
-var bytes = BookPdf.ToBytes(book);
+DocumentPdf.Write(document, @"C:\temp\out.pdf");
+var bytes = DocumentPdf.ToBytes(document);
 ```
 
 ## Related packages
 
 | Package | When to use |
 |---------|-------------|
-| `Novolis.Documents` | Book model |
+| `Novolis.Documents` | Document model |
 | `Novolis.Documents.Layout` | Pagination only |
 
 ## Support

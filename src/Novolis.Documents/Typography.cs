@@ -1,6 +1,6 @@
 namespace Novolis.Documents;
 
-/// <summary>Minimal typography for one-column book flow.</summary>
+/// <summary>Minimal typography for one-column paged flow.</summary>
 public sealed class Typography
 {
     /// <summary>Body font family name (system or embedded via Skia options).</summary>
@@ -9,8 +9,8 @@ public sealed class Typography
     /// <summary>Body size in points.</summary>
     public float BodyFontSizePt { get; init; } = 11f;
 
-    /// <summary>Chapter (H1) size in points.</summary>
-    public float ChapterTitleSizePt { get; init; } = 19f;
+    /// <summary>H1 size in points.</summary>
+    public float H1SizePt { get; init; } = 19f;
 
     /// <summary>H2 size in points.</summary>
     public float H2SizePt { get; init; } = 14f;

@@ -16,22 +16,22 @@ Local multi-repo work uses Platform ProjectReference mode (`NovolisUseProjectRef
 using Novolis.Documents;
 using Novolis.Documents.Skia;
 
-var book = new BookDocument
+var document = new PagedDocument
 {
-    Meta = new BookMeta { Title = "Hello" },
+    Meta = new DocumentMeta { Title = "Hello" },
     Setup = new PageSetup
     {
-        Trim = TrimPresets.TradePaperback6x9,
-        Margin = TrimPresets.DefaultBookMargin,
+        Trim = TrimPresets.Inch6x9,
+        Margin = TrimPresets.DefaultMargin,
     },
     Typography = new Typography(),
     Footer = new RunningChrome { Template = "{page}" },
     Body =
     [
         new HeadingBlock { Level = 1, Text = "One" },
-        new ParagraphBlock { Text = "Hello, book." },
+        new ParagraphBlock { Text = "Hello, document." },
     ],
 };
 
-BookPdf.Write(book, "hello.pdf");
+DocumentPdf.Write(document, "hello.pdf");
 ```
