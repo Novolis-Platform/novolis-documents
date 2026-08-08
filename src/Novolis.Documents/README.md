@@ -20,35 +20,22 @@ dotnet add package Novolis.Documents
 
 ```csharp
 using Novolis.Documents;
-using Novolis.Math.Measure;
 
-var document = new PagedDocument
-{
-    Meta = new DocumentMeta { Title = "Sample", Author = "Example" },
-    Setup = new PageSetup
-    {
-        Trim = TrimPresets.Inch6x9,
-        Margin = TrimPresets.DefaultMargin,
-    },
-    Typography = new Typography(),
-    IncludeCover = true,
-    IncludeToc = true,
-    First = new FirstPage { Lines = ["Trade sample"] },
-    Last = new LastPage { Title = "Colophon", Lines = ["End."] },
-    Header = new RunningChrome { Template = "{title}" },
-    Footer = new RunningChrome { Template = "{page}" },
-    Body =
-    [
-        new HeadingBlock { Level = 1, Text = "Section One" },
-        new ParagraphBlock { Text = "Once upon a time…" },
-        new TableBlock
-        {
-            Headers = ["A", "B"],
-            Rows = [["1", "2"]],
-        },
-    ],
-};
+var document = Document.Create("Sample")
+    .Meta(m => m.Author("Example"))
+    .Page(p => p.Trade6x9().Header("{title}").Footer("{page}"))
+    .Body(b => b
+        .First(f => f.Lines("Trade sample"))
+        .Content(c => c
+            .Toc()
+            .Chapter("Section One", ch => ch
+                .Paragraph("Once upon a time…")
+                .Table(t => t.Headers("A", "B").Row("1", "2"))))
+        .Last(l => l.Title("Colophon").Lines("End.")))
+    .Build();
 ```
+
+`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Object initializers on `PagedDocument` remain supported for mappers.
 
 `DefaultMargin` is print-oriented (binding 0.75″ / outer 0.5″ / head 0.5″ / foot 0.65″). Use `TrimPresets.ReportMargin` for uniform 1″.
 ## Related packages

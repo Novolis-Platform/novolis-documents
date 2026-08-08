@@ -21,5 +21,8 @@
           Link="TestData\UBL-Invoice-2.1-Example.xml"
           CopyToOutputDirectory="PreserveNewest"
           Condition="Exists('..\..\..\novolis-xsd\tests\Novolis.Xsd.Unit\TestData\UBL-Invoice-2.1-Example.xml')" />
+    <None Include="TestData\logo-icon.svg"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('TestData\logo-icon.svg')" />
   </ItemGroup>
 </Project>

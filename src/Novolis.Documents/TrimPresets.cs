@@ -17,6 +17,10 @@ public static class TrimPresets
     public static Size A5 { get; } =
         new(LengthUnits.FromMillimeters(148f), LengthUnits.FromMillimeters(210f));
 
+    /// <summary>ISO A4.</summary>
+    public static Size A4 { get; } =
+        new(LengthUnits.FromMillimeters(210f), LengthUnits.FromMillimeters(297f));
+
     /// <summary>US Letter.</summary>
     public static Size USLetter { get; } =
         new(LengthUnits.FromInches(8.5f), LengthUnits.FromInches(11f));

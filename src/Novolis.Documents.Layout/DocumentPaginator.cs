@@ -324,6 +324,24 @@ public static class DocumentPaginator
                     PlaceTable(table, document, measurer, width, contentHeight,
                         ref y, blocks, Flush);
                     continue;
+                case ColumnsBlock columns:
+                {
+                    var height = MeasureBlock(columns, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(columns, y, height));
+                    y += height + typography.ParagraphSpacingPt;
+                    continue;
+                }
+                case ImageBlock image:
+                {
+                    var height = MeasureBlock(image, document, measurer, width);
+                    if (y + height > contentHeight && blocks.Count > 0)
+                        Flush();
+                    blocks.Add(new PlacedBlock(image, y, height));
+                    y += height + typography.ParagraphSpacingPt;
+                    continue;
+                }
                 case HeadingBlock heading:
                 {
                     var height = MeasureBlock(heading, document, measurer, width);
@@ -411,11 +429,10 @@ public static class DocumentPaginator
         var typography = document.Typography;
         var padding = typography.TableCellPaddingPt;
         var style = TableStyle(typography);
-        var colWidth = width / columns;
-        var textWidth = System.Math.Max(8f, colWidth - padding * 2f);
+        var colWidths = ResolveWidths(table.ColumnWidths, columns, width);
         var showHeader = table.ShowHeader && table.Headers.Count > 0;
         var headerHeight = showHeader
-            ? MeasureTableRow(table.Headers, columns, textWidth, padding, style, measurer)
+            ? MeasureTableRow(table.Headers, columns, colWidths, padding, style, measurer)
             : 0f;
 
         var rowIndex = 0;
@@ -434,7 +451,7 @@ public static class DocumentPaginator
             var sliceRows = new List<IReadOnlyList<string>>();
             while (rowIndex < table.Rows.Count)
             {
-                var rowH = MeasureTableRow(table.Rows[rowIndex], columns, textWidth, padding, style, measurer);
+                var rowH = MeasureTableRow(table.Rows[rowIndex], columns, colWidths, padding, style, measurer);
                 if (used + rowH > contentHeight - y && sliceRows.Count > 0)
                     break;
                 if (used + rowH > contentHeight - y && sliceRows.Count == 0 && blocks.Count > 0)
@@ -454,8 +471,11 @@ public static class DocumentPaginator
             {
                 Headers = includeHeader ? table.Headers : [],
                 Rows = sliceRows,
+                ColumnWidths = table.ColumnWidths,
+                ColumnAlignments = table.ColumnAlignments,
                 ShowHeader = includeHeader,
-                DrawRules = table.DrawRules,
+                RuleStyle = table.RuleStyle,
+                HeaderBackground = table.HeaderBackground,
                 RepeatHeaderOnPageBreak = table.RepeatHeaderOnPageBreak,
             };
             blocks.Add(new PlacedBlock(slice, y, used));
@@ -477,10 +497,40 @@ public static class DocumentPaginator
         return n;
     }
 
+    static float[] ResolveWidths(IReadOnlyList<float>? fractions, int count, float totalWidth)
+    {
+        var widths = new float[count];
+        if (count <= 0)
+            return widths;
+
+        if (fractions is null || fractions.Count != count)
+        {
+            var equal = totalWidth / count;
+            for (var i = 0; i < count; i++)
+                widths[i] = equal;
+            return widths;
+        }
+
+        float sum = 0f;
+        for (var i = 0; i < count; i++)
+            sum += System.Math.Max(0f, fractions[i]);
+        if (sum <= 0f)
+        {
+            var equal = totalWidth / count;
+            for (var i = 0; i < count; i++)
+                widths[i] = equal;
+            return widths;
+        }
+
+        for (var i = 0; i < count; i++)
+            widths[i] = totalWidth * System.Math.Max(0f, fractions[i]) / sum;
+        return widths;
+    }
+
     static float MeasureTableRow(
         IReadOnlyList<string> cells,
         int columns,
-        float textWidth,
+        float[] colWidths,
         float padding,
         TextStyle style,
         ITextMeasurer measurer)
@@ -489,6 +539,7 @@ public static class DocumentPaginator
         for (var c = 0; c < columns; c++)
         {
             var text = c < cells.Count ? cells[c] : string.Empty;
+            var textWidth = System.Math.Max(8f, colWidths[c] - padding * 2f);
             var h = measurer.MeasureHeight(text, textWidth, style);
             if (h > max)
                 max = h;
@@ -504,10 +555,41 @@ public static class DocumentPaginator
             HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(document.Typography, h.Level)),
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             TableBlock t => MeasureTable(t, document, measurer, width),
+            ImageBlock image => System.Math.Max(0f, image.HeightPt),
+            ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,
                 new TextStyle(document.Typography.BodyFontFamily, document.Typography.SceneBreakSizePt, 1f)),
             _ => document.Typography.ParagraphSpacingPt,
         };
+    }
+
+    static float MeasureColumns(ColumnsBlock columns, PagedDocument document, ITextMeasurer measurer, float width)
+    {
+        if (columns.Columns.Count == 0)
+            return 0f;
+
+        var gap = System.Math.Max(0f, columns.GapPt);
+        var usable = System.Math.Max(0f, width - gap * (columns.Columns.Count - 1));
+        var colWidths = ResolveWidths(columns.Fractions, columns.Columns.Count, usable);
+        float max = 0f;
+        for (var i = 0; i < columns.Columns.Count; i++)
+        {
+            float h = 0f;
+            foreach (var child in columns.Columns[i])
+            {
+                h += MeasureBlock(child, document, measurer, colWidths[i]);
+                h += child is HeadingBlock heading
+                    ? (heading.Level == 1
+                        ? document.Typography.AfterLevel1SpacingPt
+                        : document.Typography.AfterHeadingSpacingPt)
+                    : document.Typography.ParagraphSpacingPt;
+            }
+
+            if (h > max)
+                max = h;
+        }
+
+        return max;
     }
 
     static float MeasureTable(TableBlock table, PagedDocument document, ITextMeasurer measurer, float width)
@@ -517,12 +599,12 @@ public static class DocumentPaginator
             return 0f;
         var padding = document.Typography.TableCellPaddingPt;
         var style = TableStyle(document.Typography);
-        var textWidth = System.Math.Max(8f, width / columns - padding * 2f);
+        var colWidths = ResolveWidths(table.ColumnWidths, columns, width);
         float total = 0f;
         if (table.ShowHeader && table.Headers.Count > 0)
-            total += MeasureTableRow(table.Headers, columns, textWidth, padding, style, measurer);
+            total += MeasureTableRow(table.Headers, columns, colWidths, padding, style, measurer);
         foreach (var row in table.Rows)
-            total += MeasureTableRow(row, columns, textWidth, padding, style, measurer);
+            total += MeasureTableRow(row, columns, colWidths, padding, style, measurer);
         return total;
     }
 

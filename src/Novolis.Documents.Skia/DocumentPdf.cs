@@ -63,6 +63,16 @@ public static class DocumentPdf
         return stream.ToArray();
     }
 
+    /// <summary>Paginates with the same measurer used for PDF output.</summary>
+    public static PagePlan Layout(PagedDocument document, DocumentPdfOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        options ??= new DocumentPdfOptions();
+        using var typeface = LoadTypeface(options.BodyFontPath, bold: false);
+        using var boldTypeface = LoadTypeface(options.BoldFontPath ?? options.BodyFontPath, bold: true);
+        return DocumentPaginator.Paginate(document, new SkiaTextMeasurer(typeface, boldTypeface));
+    }
+
     static void DrawPage(
         SKCanvas canvas,
         PagedDocument document,
@@ -193,6 +203,12 @@ public static class DocumentPdf
             case TableBlock table:
                 DrawTable(canvas, document, table, typeface, boldTypeface, x, y, width);
                 break;
+            case ImageBlock image:
+                DrawImage(canvas, image, x, y);
+                break;
+            case ColumnsBlock columns:
+                DrawColumns(canvas, document, columns, typeface, boldTypeface, measurer, x, y, width);
+                break;
             case SceneBreakBlock s:
                 DrawCenteredText(canvas, s.Ornament, typeface, document.Typography.SceneBreakSizePt,
                     x, y, width, document.Typography.SceneBreakSizePt * 1.2f);
@@ -200,6 +216,175 @@ public static class DocumentPdf
             case CoverBlock:
                 break;
         }
+    }
+
+    static void DrawColumns(
+        SKCanvas canvas,
+        PagedDocument document,
+        ColumnsBlock columns,
+        SKTypeface typeface,
+        SKTypeface boldTypeface,
+        SkiaTextMeasurer measurer,
+        float x,
+        float y,
+        float width)
+    {
+        if (columns.Columns.Count == 0)
+            return;
+
+        var gap = System.Math.Max(0f, columns.GapPt);
+        var usable = System.Math.Max(0f, width - gap * (columns.Columns.Count - 1));
+        var fractions = columns.Fractions;
+        var colWidths = new float[columns.Columns.Count];
+        if (fractions is null || fractions.Count != columns.Columns.Count)
+        {
+            var equal = usable / columns.Columns.Count;
+            for (var i = 0; i < colWidths.Length; i++)
+                colWidths[i] = equal;
+        }
+        else
+        {
+            float sum = 0f;
+            for (var i = 0; i < fractions.Count; i++)
+                sum += System.Math.Max(0f, fractions[i]);
+            if (sum <= 0f)
+                sum = 1f;
+            for (var i = 0; i < colWidths.Length; i++)
+                colWidths[i] = usable * System.Math.Max(0f, fractions[i]) / sum;
+        }
+
+        float cx = x;
+        for (var i = 0; i < columns.Columns.Count; i++)
+        {
+            float cy = y;
+            foreach (var child in columns.Columns[i])
+            {
+                DrawBlock(canvas, document, child, typeface, boldTypeface, measurer, cx, cy, colWidths[i]);
+                var h = child switch
+                {
+                    ImageBlock img => img.HeightPt,
+                    HeadingBlock heading => measurer.MeasureHeight(heading.Text, colWidths[i],
+                        new TextStyle(document.Typography.BodyFontFamily,
+                            heading.Level switch
+                            {
+                                1 => document.Typography.H1SizePt,
+                                2 => document.Typography.H2SizePt,
+                                _ => document.Typography.H3SizePt,
+                            },
+                            document.Typography.LineHeight,
+                            Bold: true)),
+                    ParagraphBlock p => measurer.MeasureHeight(p.Text, colWidths[i],
+                        new TextStyle(document.Typography.BodyFontFamily, document.Typography.BodyFontSizePt,
+                            document.Typography.LineHeight)),
+                    TableBlock t => MeasureDrawnTable(document, t, colWidths[i], measurer),
+                    _ => document.Typography.BodyFontSizePt,
+                };
+                cy += h + (child is HeadingBlock hb
+                    ? (hb.Level == 1
+                        ? document.Typography.AfterLevel1SpacingPt
+                        : document.Typography.AfterHeadingSpacingPt)
+                    : document.Typography.ParagraphSpacingPt);
+            }
+
+            cx += colWidths[i] + gap;
+        }
+    }
+
+    static float MeasureDrawnTable(
+        PagedDocument document,
+        TableBlock table,
+        float width,
+        SkiaTextMeasurer measurer)
+    {
+        var columns = table.Headers.Count;
+        foreach (var row in table.Rows)
+            columns = System.Math.Max(columns, row.Count);
+        if (columns <= 0)
+            return 0f;
+
+        var padding = document.Typography.TableCellPaddingPt;
+        var style = new TextStyle(document.Typography.BodyFontFamily, document.Typography.EffectiveTableFontSizePt,
+            document.Typography.LineHeight);
+        var colWidths = ResolveColumnWidths(table.ColumnWidths, columns, width);
+        float total = 0f;
+        if (table.ShowHeader && table.Headers.Count > 0)
+            total += MeasureDrawnRow(table.Headers, columns, colWidths, padding, style, measurer);
+        foreach (var row in table.Rows)
+            total += MeasureDrawnRow(row, columns, colWidths, padding, style, measurer);
+        return total;
+    }
+
+    static float MeasureDrawnRow(
+        IReadOnlyList<string> cells,
+        int columns,
+        float[] colWidths,
+        float padding,
+        TextStyle style,
+        SkiaTextMeasurer measurer)
+    {
+        float max = style.FontSizePt * style.LineHeight;
+        for (var c = 0; c < columns; c++)
+        {
+            var text = c < cells.Count ? cells[c] : string.Empty;
+            var tw = System.Math.Max(8f, colWidths[c] - padding * 2f);
+            max = System.Math.Max(max, measurer.MeasureHeight(text, tw, style));
+        }
+
+        return max + padding * 2f;
+    }
+
+    static void DrawImage(SKCanvas canvas, ImageBlock image, float x, float y)
+    {
+        var width = System.Math.Max(1f, image.WidthPt);
+        var height = System.Math.Max(1f, image.HeightPt);
+        byte[]? bytes = image.Data;
+        string? path = image.Path;
+        if (bytes is null && !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            bytes = File.ReadAllBytes(path);
+        if (bytes is null || bytes.Length == 0)
+            return;
+
+        var isSvg = LooksLikeSvg(bytes, path);
+        if (isSvg)
+        {
+            DrawSvg(canvas, bytes, x, y, width, height);
+            return;
+        }
+
+        using var data = SKData.CreateCopy(bytes);
+        using var bitmap = SKBitmap.Decode(data);
+        if (bitmap is null)
+            return;
+        var dest = new SKRect(x, y, x + width, y + height);
+        canvas.DrawBitmap(bitmap, dest);
+    }
+
+    static bool LooksLikeSvg(byte[] bytes, string? path)
+    {
+        if (!string.IsNullOrWhiteSpace(path)
+            && path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+            return true;
+        var probe = System.Text.Encoding.UTF8.GetString(bytes, 0, System.Math.Min(bytes.Length, 256));
+        return probe.Contains("<svg", StringComparison.OrdinalIgnoreCase);
+    }
+
+    static void DrawSvg(SKCanvas canvas, byte[] bytes, float x, float y, float width, float height)
+    {
+        using var svg = new Svg.Skia.SKSvg();
+        using var stream = new MemoryStream(bytes);
+        if (svg.Load(stream) is null || svg.Picture is null)
+            return;
+
+        var bounds = svg.Picture.CullRect;
+        if (bounds.Width <= 0f || bounds.Height <= 0f)
+            return;
+
+        var scale = System.Math.Min(width / bounds.Width, height / bounds.Height);
+        canvas.Save();
+        canvas.Translate(x, y);
+        canvas.Scale(scale);
+        canvas.DrawPicture(svg.Picture);
+        canvas.Restore();
     }
 
     static void DrawTable(
@@ -222,20 +407,44 @@ public static class DocumentPdf
         var padding = typography.TableCellPaddingPt;
         var fontSize = typography.EffectiveTableFontSizePt;
         var lineHeight = typography.LineHeight;
-        var colWidth = width / columns;
-        var textWidth = System.Math.Max(8f, colWidth - padding * 2f);
+        var colWidths = ResolveColumnWidths(table.ColumnWidths, columns, width);
+        var aligns = table.ColumnAlignments;
         var yy = y;
+        var tableBottom = y;
 
         using var paint = new SKPaint { IsAntialias = true, Color = SKColors.Black };
         using var rule = new SKPaint
         {
             IsAntialias = true,
-            Color = SKColors.Black,
+            Color = new SKColor(0x33, 0x33, 0x33),
             Style = SKPaintStyle.Stroke,
             StrokeWidth = typography.TableRuleStrokePt,
         };
+        using var headerFill = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(0xEF, 0xF1, 0xF4),
+            Style = SKPaintStyle.Fill,
+        };
         using var bodyFont = new SKFont(typeface, fontSize);
         using var headerFont = new SKFont(boldTypeface, fontSize);
+
+        CellAlign AlignAt(int c) =>
+            aligns is { Count: > 0 } && c < aligns.Count ? aligns[c] : CellAlign.Left;
+
+        SKTextAlign SkAlign(CellAlign a) => a switch
+        {
+            CellAlign.Center => SKTextAlign.Center,
+            CellAlign.Right => SKTextAlign.Right,
+            _ => SKTextAlign.Left,
+        };
+
+        float TextX(float cellX, float colW, CellAlign align) => align switch
+        {
+            CellAlign.Center => cellX + colW / 2f,
+            CellAlign.Right => cellX + colW - padding,
+            _ => cellX + padding,
+        };
 
         void DrawRow(IReadOnlyList<string> cells, SKFont font, bool header)
         {
@@ -243,36 +452,94 @@ public static class DocumentPdf
             for (var c = 0; c < columns; c++)
             {
                 var text = c < cells.Count ? cells[c] : string.Empty;
+                var textWidth = System.Math.Max(8f, colWidths[c] - padding * 2f);
                 var lines = WrapLines(text, font, textWidth);
                 rowH = System.Math.Max(rowH, lines.Count * fontSize * lineHeight);
             }
 
             rowH += padding * 2f;
             var cellY = yy;
-            for (var c = 0; c < columns; c++)
-            {
-                var text = c < cells.Count ? cells[c] : string.Empty;
-                var cellX = x + c * colWidth;
-                if (table.DrawRules)
-                    canvas.DrawRect(cellX, cellY, colWidth, rowH, rule);
 
-                var lines = WrapLines(text, font, textWidth);
-                var ty = cellY + padding + fontSize;
-                foreach (var line in lines)
+            if (header && table.HeaderBackground)
+                canvas.DrawRect(x, cellY, width, rowH, headerFill);
+
+            if (table.RuleStyle == TableRuleStyle.Grid)
+            {
+                float cellX = x;
+                for (var c = 0; c < columns; c++)
                 {
-                    canvas.DrawText(line, cellX + padding, ty, SKTextAlign.Left, font, paint);
-                    ty += fontSize * lineHeight;
+                    canvas.DrawRect(cellX, cellY, colWidths[c], rowH, rule);
+                    cellX += colWidths[c];
                 }
             }
 
+            float textCellX = x;
+            for (var c = 0; c < columns; c++)
+            {
+                var text = c < cells.Count ? cells[c] : string.Empty;
+                var colW = colWidths[c];
+                var align = AlignAt(c);
+                var textWidth = System.Math.Max(8f, colW - padding * 2f);
+                var lines = WrapLines(text, font, textWidth);
+                var ty = cellY + padding + fontSize;
+                var tx = TextX(textCellX, colW, align);
+                var skAlign = SkAlign(align);
+                foreach (var line in lines)
+                {
+                    canvas.DrawText(line, tx, ty, skAlign, font, paint);
+                    ty += fontSize * lineHeight;
+                }
+
+                textCellX += colW;
+            }
+
             yy += rowH;
+            tableBottom = yy;
+
+            if (table.RuleStyle == TableRuleStyle.Horizontal)
+                canvas.DrawLine(x, yy, x + width, yy, rule);
         }
+
+        if (table.RuleStyle == TableRuleStyle.Horizontal)
+            canvas.DrawLine(x, y, x + width, y, rule);
 
         if (table.ShowHeader && table.Headers.Count > 0)
             DrawRow(table.Headers, headerFont, header: true);
 
         foreach (var row in table.Rows)
             DrawRow(row, bodyFont, header: false);
+
+        _ = tableBottom;
+    }
+
+    static float[] ResolveColumnWidths(IReadOnlyList<float>? fractions, int count, float totalWidth)
+    {
+        var widths = new float[count];
+        if (count <= 0)
+            return widths;
+
+        if (fractions is null || fractions.Count != count)
+        {
+            var equal = totalWidth / count;
+            for (var i = 0; i < count; i++)
+                widths[i] = equal;
+            return widths;
+        }
+
+        float sum = 0f;
+        for (var i = 0; i < count; i++)
+            sum += System.Math.Max(0f, fractions[i]);
+        if (sum <= 0f)
+        {
+            var equal = totalWidth / count;
+            for (var i = 0; i < count; i++)
+                widths[i] = equal;
+            return widths;
+        }
+
+        for (var i = 0; i < count; i++)
+            widths[i] = totalWidth * System.Math.Max(0f, fractions[i]) / sum;
+        return widths;
     }
 
     static void DrawWrappedText(

@@ -18,14 +18,18 @@ Novolis.Documents.Skia   (+ SkiaSharp)
 
 | Package | Role |
 |---------|------|
-| `Novolis.Documents` | `PagedDocument`, blocks, trim presets, chrome |
+| `Novolis.Documents` | `PagedDocument`, blocks, `DocumentBuilder` DSL, trim presets, chrome |
 | `Novolis.Documents.Layout` | `DocumentPaginator`, `PagePlan`, `ITextMeasurer` |
 | `Novolis.Documents.Skia` | `DocumentPdf.Write` / `ToBytes` |
 
+## Authoring DSL
+
+`Document.Create` → `Meta` / `Page` → `Body { First, Content, Last }` is the fluent construction API over the immutable block model. `Chapter` = level-1 heading (page break when needed). `Toc` is the contents page. Header/Footer are plain names on `Page`. Not a constraint solver.
+
 ## Hard non-goals (v1)
 
-- Constraint layout / fluent Column-Row DSL (QuestPDF)
-- Images, nested blocks in cells, footnotes, multi-column
+- Constraint layout / QuestPDF-style Column-Row positioning engine
+- Nested blocks in table cells, footnotes
 - Markdown/Markdig inside this repo
 - Competing as a general-purpose PDF SDK
 - Domain-specific product vocabulary in the public API (no book/manuscript/fiction types)

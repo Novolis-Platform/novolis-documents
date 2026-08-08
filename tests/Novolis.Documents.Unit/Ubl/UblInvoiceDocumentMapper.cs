@@ -7,12 +7,16 @@ using Novolis.Xsd.Ubl.Lean;
 namespace Novolis.Documents.Unit.Ubl;
 
 /// <summary>
-/// Experimental mapper: UBL Lean invoice → <see cref="PagedDocument"/>.
-/// Not a product API — lives in tests while we learn the layout vocabulary.
+/// Experimental mapper: UBL Lean invoice → <see cref="PagedDocument"/> using a customary
+/// Norwegian invoice <em>layout</em> (parties → lines → payment; A4; no giro), English copy.
+/// Not a product API.
 /// </summary>
 internal static class UblInvoiceDocumentMapper
 {
-    public static PagedDocument FromLean(InvoiceBase invoice)
+    /// <summary>Norwegian number/date shapes (dd.MM.yyyy, 1 234,56) — not Norwegian words.</summary>
+    static readonly CultureInfo Nb = CultureInfo.GetCultureInfo("nb-NO");
+
+    public static PagedDocument FromLean(InvoiceBase invoice, string? logoPath = null)
     {
         ArgumentNullException.ThrowIfNull(invoice);
 
@@ -20,63 +24,118 @@ internal static class UblInvoiceDocumentMapper
             ?? invoice.LegalMonetaryTotal.PayableAmount.currencyID
             ?? "EUR";
         var invoiceId = invoice.ID.Value;
-        var supplier = FormatParty(invoice.AccountingSupplierParty.Party);
-        var customer = FormatParty(invoice.AccountingCustomerParty.Party);
         var supplierName = PartyName(invoice.AccountingSupplierParty.Party) ?? "Supplier";
         var customerName = PartyName(invoice.AccountingCustomerParty.Party) ?? "Customer";
+        var logo = ResolveLogoPath(logoPath);
 
-        var blocks = new List<IBlock>
+        var blocks = new List<IBlock>();
+
+        // Letterhead: logo + title | compact meta (2 columns only)
+        var titleStack = new List<IBlock>
         {
-            new HeadingBlock { Level = 1, Text = "Invoice" },
-            new ParagraphBlock
-            {
-                Text = $"No. {invoiceId}  ·  Issued {invoice.IssueDate:yyyy-MM-dd}"
-                    + (invoice.DueDate is { } due ? $"  ·  Due {due:yyyy-MM-dd}" : string.Empty)
-                    + $"  ·  {currency}",
-            },
-            new HeadingBlock { Level = 2, Text = "Supplier" },
-            new ParagraphBlock { Text = supplier },
-            new HeadingBlock { Level = 2, Text = "Bill to" },
-            new ParagraphBlock { Text = customer },
+            new HeadingBlock { Level = 2, Text = "INVOICE" },
+            new ParagraphBlock { Text = supplierName },
         };
 
-        if (invoice.OrderReference?.ID is { Value: { Length: > 0 } orderId })
-            blocks.Add(new ParagraphBlock { Text = $"Order reference: {orderId}" });
+        var metaTable = new TableBlock
+        {
+            Headers = [],
+            Rows =
+            [
+                ["No.", invoiceId],
+                ["Issued", FormatDate(invoice.IssueDate)],
+                [
+                    "Due",
+                    invoice.DueDate is { } due ? FormatDate(due) : "On receipt",
+                ],
+                ["Currency", currency],
+            ],
+            ColumnWidths = [0.38f, 0.62f],
+            ColumnAlignments = [CellAlign.Left, CellAlign.Right],
+            ShowHeader = false,
+            RuleStyle = TableRuleStyle.None,
+            HeaderBackground = false,
+        };
 
+        if (!string.IsNullOrWhiteSpace(logo) && File.Exists(logo))
+        {
+            blocks.Add(new ColumnsBlock
+            {
+                GapPt = 12f,
+                Fractions = [0.10f, 0.48f, 0.42f],
+                Columns =
+                [
+                    [new ImageBlock { Path = logo, WidthPt = 40f, HeightPt = 40f }],
+                    titleStack,
+                    [metaTable],
+                ],
+            });
+        }
+        else
+        {
+            blocks.Add(new ColumnsBlock
+            {
+                GapPt = 16f,
+                Fractions = [0.55f, 0.45f],
+                Columns = [titleStack, [metaTable]],
+            });
+        }
+
+        // Where: seller | buyer
+        blocks.Add(new ColumnsBlock
+        {
+            GapPt = 20f,
+            Fractions = [0.5f, 0.5f],
+            Columns =
+            [
+                [
+                    new HeadingBlock { Level = 3, Text = "Supplier" },
+                    new ParagraphBlock { Text = FormatParty(invoice.AccountingSupplierParty.Party) },
+                ],
+                [
+                    new HeadingBlock { Level = 3, Text = "Bill to" },
+                    new ParagraphBlock { Text = FormatParty(invoice.AccountingCustomerParty.Party) },
+                ],
+            ],
+        });
+
+        var refs = new List<string>();
+        if (invoice.OrderReference?.ID is { Value: { Length: > 0 } orderId })
+            refs.Add($"Order {orderId}");
         if (invoice.InvoicePeriod is { Count: > 0 } periods)
         {
             var p = periods[0];
-            var start = p.StartDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "…";
-            var end = p.EndDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "…";
-            blocks.Add(new ParagraphBlock { Text = $"Invoice period: {start} – {end}" });
+            var start = p.StartDate is { } s ? FormatDate(s) : "…";
+            var end = p.EndDate is { } e ? FormatDate(e) : "…";
+            refs.Add($"Period {start} – {end}");
         }
 
-        foreach (var note in invoice.Note)
+        if (refs.Count > 0)
+            blocks.Add(new ParagraphBlock { Text = string.Join("  ·  ", refs) });
+
+        foreach (var note in invoice.Note ?? [])
         {
             if (!string.IsNullOrWhiteSpace(note.Value))
-                blocks.Add(new ParagraphBlock { Text = $"Note: {note.Value}" });
+                blocks.Add(new ParagraphBlock { Text = note.Value });
         }
 
-        blocks.Add(new HeadingBlock { Level = 2, Text = "Line items" });
+        // What: wide line table
         blocks.Add(BuildLineTable(invoice, currency));
 
-        blocks.Add(new HeadingBlock { Level = 2, Text = "Totals" });
-        blocks.Add(BuildTotalsTable(invoice, currency));
-
-        if (invoice.TaxTotal.Count > 0)
+        // How + summary side by side (summary stays 2 columns)
+        blocks.Add(new ColumnsBlock
         {
-            blocks.Add(new HeadingBlock { Level = 3, Text = "Tax" });
-            blocks.Add(BuildTaxTable(invoice, currency));
-        }
-
-        var paymentLines = BuildPaymentLines(invoice);
-        LastPage? last = paymentLines.Count > 0
-            ? new LastPage
-            {
-                Title = "Payment",
-                Lines = paymentLines,
-            }
-            : null;
+            GapPt = 22f,
+            Fractions = [0.58f, 0.42f],
+            Columns =
+            [
+                [
+                    new HeadingBlock { Level = 3, Text = "Payment" },
+                    new ParagraphBlock { Text = BuildPaymentBody(invoice, currency) },
+                ],
+                [BuildSummaryTable(invoice, currency)],
+            ],
+        });
 
         return new PagedDocument
         {
@@ -89,47 +148,64 @@ internal static class UblInvoiceDocumentMapper
             },
             Setup = new PageSetup
             {
-                Trim = TrimPresets.USLetter,
+                Trim = TrimPresets.A4,
                 Margin = new Thickness(
-                    LengthUnits.FromInches(0.7f),
-                    LengthUnits.FromInches(0.55f),
-                    LengthUnits.FromInches(0.55f),
-                    LengthUnits.FromInches(0.6f)),
+                    LengthUnits.FromMillimeters(14f),
+                    LengthUnits.FromMillimeters(12f),
+                    LengthUnits.FromMillimeters(14f),
+                    LengthUnits.FromMillimeters(12f)),
+                HeaderBand = LengthUnits.FromPoints(0f),
+                FooterBand = LengthUnits.FromPoints(12f),
             },
             Typography = new Typography
             {
-                BodyFontSizePt = 10f,
-                H1SizePt = 20f,
-                H2SizePt = 12f,
-                H3SizePt = 11f,
-                LineHeight = 1.25f,
-                ParagraphSpacingPt = 5f,
-                AfterLevel1SpacingPt = 8f,
-                AfterHeadingSpacingPt = 4f,
-                TableFontSizePt = 9f,
-                TableCellPaddingPt = 3.5f,
+                BodyFontSizePt = 8.5f,
+                H1SizePt = 14f,
+                H2SizePt = 13f,
+                H3SizePt = 8.5f,
+                LineHeight = 1.18f,
+                ParagraphSpacingPt = 3f,
+                AfterLevel1SpacingPt = 4f,
+                AfterHeadingSpacingPt = 2f,
+                TableFontSizePt = 7.5f,
+                TableCellPaddingPt = 2.25f,
                 TableRuleStrokePt = 0.4f,
             },
             IncludeCover = false,
             IncludeToc = false,
-            First = new FirstPage
-            {
-                Title = "INVOICE",
-                Subtitle = invoiceId,
-                Author = supplierName,
-                Lines =
-                [
-                    $"Issue date {invoice.IssueDate:dd MMM yyyy}",
-                    invoice.DueDate is { } d ? $"Due {d:dd MMM yyyy}" : "Due on receipt",
-                    $"Currency {currency}",
-                ],
-            },
-            Header = new RunningChrome { Template = $"Invoice {invoiceId} — {{title}}", FontSizePt = 8f },
-            Footer = new RunningChrome { Template = "{page}", FontSizePt = 8f },
-            SuppressHeaderOnLevel1Open = true,
-            Last = last,
+            First = null,
+            Last = null,
+            Header = null,
+            Footer = new RunningChrome { Template = "{page}", FontSizePt = 7f },
+            SuppressHeaderOnLevel1Open = false,
             Body = blocks,
         };
+    }
+
+    static string ResolveLogoPath(string? logoPath)
+    {
+        if (!string.IsNullOrWhiteSpace(logoPath) && File.Exists(logoPath))
+            return logoPath;
+
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            foreach (var candidate in new[]
+                     {
+                         Path.Combine(dir.FullName, "TestData", "logo-icon.svg"),
+                         Path.Combine(dir.FullName, "tests", "Novolis.Documents.Unit", "TestData", "logo-icon.svg"),
+                         Path.Combine(dir.FullName, ".github", "brand", "logo-icon.svg"),
+                         Path.Combine(dir.FullName, "logo-icon.svg"),
+                     })
+            {
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+
+            dir = dir.Parent;
+        }
+
+        return string.Empty;
     }
 
     static TableBlock BuildLineTable(InvoiceBase invoice, string currency)
@@ -138,112 +214,137 @@ internal static class UblInvoiceDocumentMapper
         foreach (var line in invoice.InvoiceLine)
         {
             var name = line.Item.Name?.Value
-                ?? line.Item.Description.FirstOrDefault()?.Value
+                ?? line.Item.Description?.FirstOrDefault()?.Value
                 ?? "(item)";
+            var code = line.Item.SellersItemIdentification?.ID?.Value ?? "";
             var qty = line.InvoicedQuantity is { } q
-                ? $"{q.Value.ToString("0.##", CultureInfo.InvariantCulture)}{(string.IsNullOrWhiteSpace(q.unitCode) ? "" : " " + q.unitCode)}"
+                ? q.Value.ToString("0.##", Nb)
                 : "—";
-            var unit = line.Price?.PriceAmount is { } pa
-                ? Money(pa.Value, pa.currencyID ?? currency)
+            var unit = line.InvoicedQuantity is { unitCode: { Length: > 0 } u } ? u : "";
+            var unitPrice = line.Price?.PriceAmount is { } pa
+                ? Amount(pa.Value)
                 : "—";
-            var ext = Money(line.LineExtensionAmount.Value, line.LineExtensionAmount.currencyID ?? currency);
-            rows.Add([line.ID.Value, name, qty, unit, ext]);
+            var vatPct = LineVatPercent(line);
+            var vatAmt = line.TaxTotal?.FirstOrDefault()?.TaxAmount is { } ta
+                ? Amount(ta.Value)
+                : "—";
+            var ext = Amount(line.LineExtensionAmount.Value);
+            rows.Add([line.ID.Value, name, code, qty, unit, unitPrice, vatPct, vatAmt, ext]);
         }
 
         return new TableBlock
         {
-            Headers = ["#", "Description", "Qty", "Unit", "Amount"],
+            Headers =
+            [
+                "#", "Description", "Item", "Qty", "Unit", "Price", "VAT %", "VAT", $"Amount ({currency})",
+            ],
             Rows = rows,
+            ColumnWidths = [0.04f, 0.28f, 0.10f, 0.07f, 0.07f, 0.11f, 0.08f, 0.11f, 0.14f],
+            ColumnAlignments =
+            [
+                CellAlign.Left, CellAlign.Left, CellAlign.Left,
+                CellAlign.Right, CellAlign.Center, CellAlign.Right,
+                CellAlign.Right, CellAlign.Right, CellAlign.Right,
+            ],
             ShowHeader = true,
-            DrawRules = true,
+            RuleStyle = TableRuleStyle.Horizontal,
+            HeaderBackground = true,
             RepeatHeaderOnPageBreak = true,
         };
     }
 
-    static TableBlock BuildTotalsTable(InvoiceBase invoice, string currency)
+    static TableBlock BuildSummaryTable(InvoiceBase invoice, string currency)
     {
         var m = invoice.LegalMonetaryTotal;
         var rows = new List<IReadOnlyList<string>>();
         if (m.LineExtensionAmount is { } lea)
-            rows.Add(["Line extension", Money(lea.Value, lea.currencyID ?? currency)]);
-        if (m.TaxExclusiveAmount is { } tea)
-            rows.Add(["Tax exclusive", Money(tea.Value, tea.currencyID ?? currency)]);
-        if (m.TaxInclusiveAmount is { } tia)
-            rows.Add(["Tax inclusive", Money(tia.Value, tia.currencyID ?? currency)]);
+            rows.Add(["Lines", Amount(lea.Value)]);
         if (m.AllowanceTotalAmount is { } ata)
-            rows.Add(["Allowances", Money(ata.Value, ata.currencyID ?? currency)]);
+            rows.Add(["Allowances", Amount(ata.Value)]);
         if (m.ChargeTotalAmount is { } cta)
-            rows.Add(["Charges", Money(cta.Value, cta.currencyID ?? currency)]);
+            rows.Add(["Charges", Amount(cta.Value)]);
+        if (m.TaxExclusiveAmount is { } tea)
+            rows.Add(["Net", Amount(tea.Value)]);
+
+        foreach (var tax in invoice.TaxTotal ?? [])
+        {
+            foreach (var sub in tax.TaxSubtotal ?? [])
+            {
+                var pct = sub.TaxCategory?.Percent?.Value;
+                var label = pct is { } p ? $"VAT {p.ToString("0.##", Nb)} %" : "VAT";
+                rows.Add([label, Amount(sub.TaxAmount.Value)]);
+            }
+        }
+
         if (m.PrepaidAmount is { } ppa)
-            rows.Add(["Prepaid", Money(ppa.Value, ppa.currencyID ?? currency)]);
-        rows.Add(["Payable", Money(m.PayableAmount.Value, m.PayableAmount.currencyID ?? currency)]);
+            rows.Add(["Prepaid", Amount(ppa.Value)]);
+        rows.Add([$"Due ({currency})", Amount(m.PayableAmount.Value)]);
 
         return new TableBlock
         {
             Headers = ["", ""],
             Rows = rows,
+            ColumnWidths = [0.58f, 0.42f],
+            ColumnAlignments = [CellAlign.Left, CellAlign.Right],
             ShowHeader = false,
-            DrawRules = true,
+            RuleStyle = TableRuleStyle.Horizontal,
+            HeaderBackground = false,
         };
     }
 
-    static TableBlock BuildTaxTable(InvoiceBase invoice, string currency)
+    static string LineVatPercent(InvoiceLineBase line)
     {
-        var rows = new List<IReadOnlyList<string>>();
-        foreach (var tax in invoice.TaxTotal)
-        {
-            rows.Add(["Tax total", Money(tax.TaxAmount.Value, tax.TaxAmount.currencyID ?? currency)]);
-            foreach (var sub in tax.TaxSubtotal)
-            {
-                var cat = sub.TaxCategory?.ID?.Value ?? "VAT";
-                var pct = sub.TaxCategory?.Percent?.Value;
-                var label = pct is { } p
-                    ? $"{cat} {p.ToString("0.##", CultureInfo.InvariantCulture)}%"
-                    : cat;
-                rows.Add([label, Money(sub.TaxAmount.Value, sub.TaxAmount.currencyID ?? currency)]);
-            }
-        }
-
-        return new TableBlock
-        {
-            Headers = ["Category", "Amount"],
-            Rows = rows,
-            ShowHeader = true,
-            DrawRules = true,
-        };
+        var pct = line.Item.ClassifiedTaxCategory?.FirstOrDefault()?.Percent?.Value;
+        return pct is { } p ? p.ToString("0.##", Nb) : "—";
     }
 
-    static List<string> BuildPaymentLines(InvoiceBase invoice)
+    static string BuildPaymentBody(InvoiceBase invoice, string currency)
     {
-        var lines = new List<string>();
-        foreach (var means in invoice.PaymentMeans)
+        var sb = new StringBuilder();
+        var payable = Money(
+            invoice.LegalMonetaryTotal.PayableAmount.Value,
+            invoice.LegalMonetaryTotal.PayableAmount.currencyID ?? currency);
+        sb.AppendLine($"Amount due: {payable}");
+
+        if (invoice.DueDate is { } due)
+            sb.AppendLine($"Due date: {FormatDate(due)}");
+        else if (invoice.PaymentMeans?.FirstOrDefault()?.PaymentDueDate is { } payDue)
+            sb.AppendLine($"Due date: {FormatDate(payDue)}");
+        else
+            sb.AppendLine("Due on receipt");
+
+        foreach (var means in invoice.PaymentMeans ?? [])
         {
-            if (means.PaymentMeansCode?.Value is { Length: > 0 } code)
-                lines.Add($"Payment means code: {code}");
-            if (means.PaymentDueDate is { } due)
-                lines.Add($"Payment due: {due:yyyy-MM-dd}");
             var account = means.PayeeFinancialAccount;
             if (account?.ID?.Value is { Length: > 0 } iban)
-                lines.Add($"Account: {iban}");
+                sb.AppendLine($"Account / IBAN: {iban}");
             if (account?.Name?.Value is { Length: > 0 } accName)
-                lines.Add($"Account name: {accName}");
-        }
-
-        foreach (var terms in invoice.PaymentTerms)
-        {
-            foreach (var note in terms.Note)
+                sb.AppendLine($"Account name: {accName}");
+            foreach (var kid in means.PaymentID ?? [])
             {
-                if (!string.IsNullOrWhiteSpace(note.Value))
-                    lines.Add(note.Value);
+                if (!string.IsNullOrWhiteSpace(kid.Value))
+                    sb.AppendLine($"Payment reference: {kid.Value}");
             }
         }
 
-        return lines;
+        foreach (var terms in invoice.PaymentTerms ?? [])
+        {
+            foreach (var note in terms.Note ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(note.Value))
+                    sb.AppendLine(note.Value);
+            }
+        }
+
+        if (sb.Length == 0)
+            sb.Append("Pay as agreed.");
+
+        return sb.ToString().TrimEnd();
     }
 
     static string? PartyName(PartyBase? party) =>
-        party?.PartyName.FirstOrDefault()?.Name?.Value
-        ?? party?.PartyLegalEntity.FirstOrDefault()?.RegistrationName?.Value;
+        party?.PartyName?.FirstOrDefault()?.Name?.Value
+        ?? party?.PartyLegalEntity?.FirstOrDefault()?.RegistrationName?.Value;
 
     static string FormatParty(PartyBase? party)
     {
@@ -259,23 +360,18 @@ internal static class UblInvoiceDocumentMapper
         {
             Append(sb, JoinNonEmpty(" ", addr.StreetName?.Value, addr.BuildingNumber?.Value));
             Append(sb, addr.AdditionalStreetName?.Value);
-            Append(sb, addr.Department?.Value);
             Append(sb, JoinNonEmpty(" ", addr.PostalZone?.Value, addr.CityName?.Value));
-            Append(sb, addr.CountrySubentity?.Value ?? addr.CountrySubentityCode?.Value);
             Append(sb, addr.Country?.IdentificationCode?.Value);
         }
 
-        foreach (var tax in party.PartyTaxScheme)
+        foreach (var tax in party.PartyTaxScheme ?? [])
         {
             if (tax.CompanyID?.Value is { Length: > 0 } vat)
                 Append(sb, $"Tax ID: {vat}");
         }
 
-        if (party.Contact is { } contact)
-        {
-            Append(sb, contact.ElectronicMail?.Value);
-            Append(sb, contact.Telephone?.Value is { Length: > 0 } tel ? $"Tel {tel}" : null);
-        }
+        if (party.Contact?.ElectronicMail?.Value is { Length: > 0 } mail)
+            Append(sb, mail);
 
         return sb.Length == 0 ? "—" : sb.ToString().TrimEnd();
     }
@@ -292,6 +388,12 @@ internal static class UblInvoiceDocumentMapper
         return list.Length == 0 ? null : string.Join(sep, list);
     }
 
+    static string FormatDate(DateTime date) =>
+        date.ToString("dd.MM.yyyy", Nb);
+
+    static string Amount(decimal amount) =>
+        amount.ToString("N2", Nb);
+
     static string Money(decimal amount, string currency) =>
-        string.Create(CultureInfo.InvariantCulture, $"{currency} {amount:0.00}");
+        $"{Amount(amount)} {currency}";
 }

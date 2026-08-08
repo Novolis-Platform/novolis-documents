@@ -1,8 +1,8 @@
 namespace Novolis.Documents;
 
 /// <summary>
-/// Immutable paged document: data model only (no fluent layout DSL).
-/// Consumers map source formats into this shape, then paginate and paint.
+/// Immutable paged document model.
+/// Prefer <see cref="Document.Create"/> / <see cref="DocumentBuilder"/> for fluent construction; mappers may also build this shape directly.
 /// </summary>
 public sealed class PagedDocument
 {

@@ -10,17 +10,25 @@ namespace Novolis.Documents.Unit.Ubl;
 public sealed class UblInvoicePdfTests
 {
     [Test]
-    public async Task Oasis_sample_maps_to_document_with_lines_and_payable()
+    public async Task Oasis_sample_maps_to_invoice_layout_structure()
     {
         var lean = LoadOasisSample();
         var doc = UblInvoiceDocumentMapper.FromLean(lean);
 
         await Assert.That(doc.Meta.Title).Contains("TOSL108");
-        await Assert.That(doc.First).IsNotNull();
-        await Assert.That(doc.Body.OfType<TableBlock>().Count()).IsGreaterThanOrEqualTo(2);
-        await Assert.That(doc.Body.OfType<HeadingBlock>().Any(h => h.Text == "Invoice")).IsTrue();
+        await Assert.That(doc.First).IsNull();
+        await Assert.That(doc.Last).IsNull();
+        await Assert.That(doc.Body.OfType<ImageBlock>().Any()
+            || doc.Body.OfType<ColumnsBlock>().Any(c => c.Columns.Any(col => col.OfType<ImageBlock>().Any())))
+            .IsTrue();
+        await Assert.That(doc.Body.OfType<ColumnsBlock>().Count()).IsGreaterThanOrEqualTo(2);
+        await Assert.That(doc.Body.OfType<ColumnsBlock>().Any(c =>
+                c.Columns.Any(col => col.OfType<HeadingBlock>().Any(h => h.Text == "Payment"))))
+            .IsTrue();
 
         var lineTable = doc.Body.OfType<TableBlock>().First(t => t.Headers.Contains("Description"));
+        await Assert.That(lineTable.Headers.Count).IsGreaterThanOrEqualTo(8);
+        await Assert.That(lineTable.RuleStyle).IsEqualTo(TableRuleStyle.Horizontal);
         await Assert.That(lineTable.Rows.Count).IsEqualTo(lean.InvoiceLine.Count);
         await Assert.That(lineTable.Rows.Count).IsGreaterThan(0);
         await Assert.That(lean.LegalMonetaryTotal.PayableAmount.Value).IsEqualTo(729m);
@@ -31,10 +39,13 @@ public sealed class UblInvoicePdfTests
     {
         var lean = LoadOasisSample();
         var doc = UblInvoiceDocumentMapper.FromLean(lean);
+        var plan = DocumentPdf.Layout(doc);
+        await Assert.That(plan.Pages.Count).IsEqualTo(1);
+
         var bytes = DocumentPdf.ToBytes(doc);
 
         await Assert.That(bytes.Length).IsGreaterThan(2000);
-        await Assert.That(bytes.Length).IsLessThan(120_000);
+        await Assert.That(bytes.Length).IsLessThan(200_000);
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
         await Assert.That(bytes[1]).IsEqualTo((byte)'P');
 
@@ -49,7 +60,7 @@ public sealed class UblInvoicePdfTests
 
         await Assert.That(File.Exists(path)).IsTrue();
         Console.WriteLine(path);
-        Console.WriteLine($"Bytes: {bytes.Length}");
+        Console.WriteLine($"Bytes: {bytes.Length}; pages: {plan.Pages.Count}");
     }
 
     static InvoiceBase LoadOasisSample()

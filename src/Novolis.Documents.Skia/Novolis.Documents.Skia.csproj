@@ -11,6 +11,7 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
+    <PackageReference Include="Svg.Skia" />
     <ProjectReference Include="..\Novolis.Documents.Layout\Novolis.Documents.Layout.csproj" />
   </ItemGroup>
   <ItemGroup>
