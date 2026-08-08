@@ -440,6 +440,7 @@ public sealed class WatermarkBuilder
     string _text = "DRAFT";
     float _fontSizePt = 54f;
     float _opacity = 0.12f;
+    DocumentColor _color = DocumentColor.Gray;
     float _rotation = -32f;
     WatermarkPages _pages = WatermarkPages.All;
 
@@ -465,6 +466,21 @@ public sealed class WatermarkBuilder
         return this;
     }
 
+    /// <summary>Ink color.</summary>
+    public WatermarkBuilder Color(DocumentColor color)
+    {
+        _color = color;
+        return this;
+    }
+
+    /// <summary>Ink color from RGB channels.</summary>
+    public WatermarkBuilder Color(byte r, byte g, byte b) =>
+        Color(DocumentColor.FromRgb(r, g, b));
+
+    /// <summary>Ink color from <c>#RGB</c> / <c>#RRGGBB</c> / <c>#AARRGGBB</c>.</summary>
+    public WatermarkBuilder Color(string hex) =>
+        Color(DocumentColor.Parse(hex));
+
     /// <summary>Rotation in degrees.</summary>
     public WatermarkBuilder Rotation(float degrees)
     {
@@ -485,6 +501,7 @@ public sealed class WatermarkBuilder
         Text = _text,
         FontSizePt = _fontSizePt,
         Opacity = _opacity,
+        Color = _color,
         RotationDegrees = _rotation,
         Pages = _pages,
     };

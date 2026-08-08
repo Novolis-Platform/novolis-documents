@@ -168,10 +168,11 @@ public static class DocumentPdf
             return;
 
         var alpha = (byte)System.Math.Clamp((int)(opacity * 255f), 0, 255);
+        var ink = mark.Color;
         using var paint = new SKPaint
         {
             IsAntialias = true,
-            Color = new SKColor(0x40, 0x40, 0x40, alpha),
+            Color = new SKColor(ink.R, ink.G, ink.B, alpha),
         };
         using var font = new SKFont(boldTypeface, System.Math.Max(8f, mark.FontSizePt));
 

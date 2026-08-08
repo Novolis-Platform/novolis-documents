@@ -33,7 +33,7 @@ var document = Document.Create("Sample")
         .Header("{title}")
         .Footer("{page} / {pages}")
         .Chrome(c => c.PageNumbersOnFrontMatter()))
-    .Watermark(w => w.Text("DRAFT").Opacity(0.12f))
+    .Watermark(w => w.Text("DRAFT").Color("#C02020").Opacity(0.12f))
     .Body(b => b
         .First(f => f.Lines("Trade sample"))
         .Content(c => c

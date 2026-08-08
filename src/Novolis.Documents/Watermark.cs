@@ -32,8 +32,11 @@ public sealed class Watermark
     /// <summary>Font size in points.</summary>
     public float FontSizePt { get; init; } = 54f;
 
-    /// <summary>Opacity 0–1.</summary>
+    /// <summary>Opacity 0–1 (multiplies over <see cref="Color"/>).</summary>
     public float Opacity { get; init; } = 0.12f;
+
+    /// <summary>Ink color (default gray).</summary>
+    public DocumentColor Color { get; init; } = DocumentColor.Gray;
 
     /// <summary>Rotation in degrees (negative = counter-clockwise).</summary>
     public float RotationDegrees { get; init; } = -32f;

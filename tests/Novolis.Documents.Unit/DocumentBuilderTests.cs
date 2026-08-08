@@ -73,7 +73,7 @@ public sealed class DocumentBuilderTests
                 .Header("{title}")
                 .Footer("{page} / {pages}")
                 .Chrome(c => c.PageNumbersOnFrontMatter()))
-            .Watermark(w => w.Text("DRAFT").Opacity(0.1f).On(WatermarkPages.All))
+            .Watermark(w => w.Text("DRAFT").Color("#C02020").Opacity(0.1f).On(WatermarkPages.All))
             .Body(b => b
                 .First(f => f.Lines("Trade paperback", "Skia sample"))
                 .Content(c => c
@@ -93,6 +93,7 @@ public sealed class DocumentBuilderTests
         await Assert.That(doc.Meta.Keywords.Count).IsEqualTo(2);
         await Assert.That(doc.Meta.Date).IsEqualTo(new DateOnly(2026, 8, 8));
         await Assert.That(doc.Watermark!.Text).IsEqualTo("DRAFT");
+        await Assert.That(doc.Watermark.Color).IsEqualTo(DocumentColor.Parse("#C02020"));
         await Assert.That(doc.Chrome.First).IsEqualTo(ChromeBand.Footer);
         await Assert.That(doc.Footer!.Template).Contains("{pages}");
         await Assert.That(doc.IncludeToc).IsTrue();
