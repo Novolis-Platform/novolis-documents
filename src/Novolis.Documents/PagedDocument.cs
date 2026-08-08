@@ -2,7 +2,7 @@ namespace Novolis.Documents;
 
 /// <summary>
 /// Immutable paged document model.
-/// Prefer <see cref="Document.Create"/> / <see cref="DocumentBuilder"/> for fluent construction; mappers may also build this shape directly.
+/// Prefer <see cref="Document.Create(string)"/> / <see cref="DocumentBuilder"/> for fluent construction; mappers may also build this shape directly.
 /// </summary>
 public sealed class PagedDocument
 {

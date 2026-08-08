@@ -63,10 +63,10 @@ public sealed class DocumentBuilder
         ArgumentNullException.ThrowIfNull(configure);
         var page = new DocumentPageBuilder(_trim, _margin, _headerBand, _footerBand, _header, _footer);
         configure(page);
-        _trim = page.Trim;
-        _margin = page.Margin;
-        _headerBand = page.HeaderBand;
-        _footerBand = page.FooterBand;
+        _trim = page.TrimValue;
+        _margin = page.MarginValue;
+        _headerBand = page.HeaderBandValue;
+        _footerBand = page.FooterBandValue;
         _header = page.HeaderChrome;
         _footer = page.FooterChrome;
         return this;

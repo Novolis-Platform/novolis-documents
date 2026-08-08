@@ -28,10 +28,10 @@ public sealed class DocumentPageBuilder
         _footer = footer;
     }
 
-    internal Size Trim => _trim;
-    internal Thickness Margin => _margin;
-    internal Length HeaderBand => _headerBand;
-    internal Length FooterBand => _footerBand;
+    internal Size TrimValue => _trim;
+    internal Thickness MarginValue => _margin;
+    internal Length HeaderBandValue => _headerBand;
+    internal Length FooterBandValue => _footerBand;
     internal RunningChrome? HeaderChrome => _header;
     internal RunningChrome? FooterChrome => _footer;
 
@@ -43,7 +43,7 @@ public sealed class DocumentPageBuilder
     }
 
     /// <summary>Content margins.</summary>
-    public DocumentPageBuilder Margin(Thickness margin)
+    public DocumentPageBuilder Margins(Thickness margin)
     {
         _margin = margin;
         return this;
@@ -51,11 +51,11 @@ public sealed class DocumentPageBuilder
 
     /// <summary>ISO A4 with print-oriented margins.</summary>
     public DocumentPageBuilder A4() =>
-        TrimSize(TrimPresets.A4).Margin(TrimPresets.DefaultMargin);
+        TrimSize(TrimPresets.A4).Margins(TrimPresets.DefaultMargin);
 
     /// <summary>6×9″ trade with print-oriented margins.</summary>
     public DocumentPageBuilder Trade6x9() =>
-        TrimSize(TrimPresets.Inch6x9).Margin(TrimPresets.DefaultMargin);
+        TrimSize(TrimPresets.Inch6x9).Margins(TrimPresets.DefaultMargin);
 
     /// <summary>Header template (<c>{page}</c>, <c>{title}</c>).</summary>
     public DocumentPageBuilder Header(string template, float fontSizePt = 9f)
