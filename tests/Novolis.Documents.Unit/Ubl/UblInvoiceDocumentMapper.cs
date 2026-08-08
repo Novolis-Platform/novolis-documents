@@ -176,8 +176,15 @@ internal static class UblInvoiceDocumentMapper
             First = null,
             Last = null,
             Header = null,
-            Footer = new RunningChrome { Template = "{page}", FontSizePt = 7f },
-            SuppressHeaderOnLevel1Open = false,
+            Footer = new Footer
+            {
+                Template = "{page}",
+                FontSizePt = 7f,
+                IncludeFirstPage = false,
+                IncludeToc = false,
+                IncludeBody = true,
+                IncludeLastPage = false,
+            },
             Body = blocks,
         };
     }

@@ -3,7 +3,7 @@ namespace Novolis.Documents;
 /// <summary>Opaque RGB color for document paint (opacity is applied separately where needed).</summary>
 public readonly record struct DocumentColor(byte R, byte G, byte B)
 {
-    /// <summary>Neutral gray (default watermark ink).</summary>
+    /// <summary>Neutral gray.</summary>
     public static DocumentColor Gray { get; } = new(0x40, 0x40, 0x40);
 
     /// <summary>Black.</summary>

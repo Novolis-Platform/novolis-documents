@@ -42,9 +42,39 @@
 
 # novolis-documents
 
-MIT paged PDF island for Novolis: customary trims (6×9 primary), cover / TOC / body / chrome, Skia paint. Domain-agnostic public API.
+MIT paged PDF island for Novolis: customary trims (6×9 primary), First / Toc / Body / Last spine, header & footer, Skia paint. Domain-agnostic public API.
 
-See [docs/design.md](docs/design.md) and [docs/getting-started.md](docs/getting-started.md).
+## Documentation
+
+| Doc | Topic |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Doc index |
+| [docs/getting-started.md](docs/getting-started.md) | Install, first PDF, dogfood |
+| [docs/authoring.md](docs/authoring.md) | Fluent `Document.Create` DSL |
+| [docs/model.md](docs/model.md) | `PagedDocument` and meta |
+| [docs/blocks.md](docs/blocks.md) | Block catalog |
+| [docs/header-footer.md](docs/header-footer.md) | Header, footer, watermark |
+| [docs/layout-and-pdf.md](docs/layout-and-pdf.md) | Pagination and `DocumentPdf` |
+| [docs/mappers.md](docs/mappers.md) | Mapping external sources |
+| [docs/faq.md](docs/faq.md) | FAQ |
+| [docs/design.md](docs/design.md) | Design / non-goals |
+| [docs/release.md](docs/release.md) | CalVer / publish |
+
+## Quick start
+
+```csharp
+using Novolis.Documents;
+using Novolis.Documents.Skia;
+
+var document = Document.Create("Harbor Notes")
+    .Page(p => p.Trade6x9().Footer("{page} / {pages}"))
+    .Body(b => b
+        .Content(c => c
+            .Chapter("Arrival", ch => ch.Paragraph("The river ran cold."))))
+    .Build();
+
+DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\harbor-notes.pdf");
+```
 
 ## Build
 

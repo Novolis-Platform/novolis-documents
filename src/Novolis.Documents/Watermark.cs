@@ -35,8 +35,8 @@ public sealed class Watermark
     /// <summary>Opacity 0–1 (multiplies over <see cref="Color"/>).</summary>
     public float Opacity { get; init; } = 0.12f;
 
-    /// <summary>Ink color (default gray).</summary>
-    public DocumentColor Color { get; init; } = DocumentColor.Gray;
+    /// <summary>Ink color (default <see cref="DocumentColor.Red"/>).</summary>
+    public DocumentColor Color { get; init; } = DocumentColor.Red;
 
     /// <summary>Rotation in degrees (negative = counter-clockwise).</summary>
     public float RotationDegrees { get; init; } = -32f;

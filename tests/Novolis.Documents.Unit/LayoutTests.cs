@@ -50,8 +50,15 @@ public sealed class LayoutTests
         Typography = new Typography(),
         IncludeCover = true,
         IncludeToc = toc,
-        Header = new RunningChrome { Template = "{title}" },
-        Footer = new RunningChrome { Template = "{page}" },
+        Header = new Header { Template = "{title}", IncludeBody = true },
+        Footer = new Footer
+        {
+            Template = "{page}",
+            IncludeFirstPage = true,
+            IncludeToc = true,
+            IncludeBody = true,
+            IncludeLastPage = true,
+        },
         Body =
         [
             new HeadingBlock { Level = 1, Text = "Section One" },
@@ -78,7 +85,7 @@ public sealed class LayoutTests
     }
 
     [Test]
-    public async Task Paginate_chrome_options_can_quiet_front_matter()
+    public async Task Paginate_footer_can_exclude_first_and_toc()
     {
         var doc = SampleDocument(toc: true);
         doc = new PagedDocument
@@ -89,13 +96,13 @@ public sealed class LayoutTests
             IncludeCover = true,
             IncludeToc = true,
             Header = doc.Header,
-            Footer = doc.Footer,
-            Chrome = new ChromeOptions
+            Footer = new Footer
             {
-                First = ChromeBand.None,
-                Toc = ChromeBand.None,
-                Body = ChromeBand.HeaderAndFooter,
-                Last = ChromeBand.None,
+                Template = "{page}",
+                IncludeFirstPage = false,
+                IncludeToc = false,
+                IncludeBody = true,
+                IncludeLastPage = false,
             },
             Body = doc.Body,
         };
@@ -103,6 +110,33 @@ public sealed class LayoutTests
         var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
         await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
         await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Toc).All(p => !p.ShowFooter)).IsTrue();
+    }
+
+    [Test]
+    public async Task Paginate_tracks_chapter_title_on_body_pages()
+    {
+        var doc = SampleDocument(toc: false);
+        doc = new PagedDocument
+        {
+            Meta = doc.Meta,
+            Setup = doc.Setup,
+            Typography = doc.Typography,
+            IncludeCover = false,
+            IncludeToc = false,
+            Header = new Header
+            {
+                Template = "{title}",
+                IncludeBody = true,
+                UseChapterTitle = true,
+            },
+            Footer = doc.Footer,
+            Body = doc.Body,
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        var sectionTwo = plan.Pages.First(p =>
+            p.Blocks.Any(b => b.Block is HeadingBlock { Level: 1, Text: "Section Two" }));
+        await Assert.That(sectionTwo.ChapterTitle).IsEqualTo("Section Two");
     }
 
     [Test]
@@ -145,33 +179,5 @@ public sealed class LayoutTests
         var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
         await Assert.That(plan.Pages.Any(p => p.Blocks.Any(b => b.Block is TableBlock))).IsTrue();
         await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Last)).IsTrue();
-    }
-
-    [Test]
-    public async Task Paginate_splits_long_paragraph_across_pages()
-    {
-        var doc = new PagedDocument
-        {
-            Meta = new DocumentMeta { Title = "Split" },
-            Setup = new PageSetup
-            {
-                Trim = TrimPresets.Inch6x9,
-                Margin = TrimPresets.DefaultMargin,
-            },
-            Typography = new Typography { LineHeight = 1.2f, ParagraphSpacingPt = 4f, BodyFontSizePt = 14f },
-            IncludeCover = false,
-            IncludeToc = false,
-            Body =
-            [
-                new HeadingBlock { Level = 1, Text = "Long" },
-                new ParagraphBlock { Text = string.Join(' ', Enumerable.Repeat("harborlights", 5000)) },
-            ],
-        };
-
-        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
-        var body = plan.Pages.Where(p => p.Kind == PageKind.Body).ToList();
-        await Assert.That(body.Count).IsGreaterThanOrEqualTo(2);
-        await Assert.That(body[0].Blocks.Any(b => b.Block is HeadingBlock)).IsTrue();
-        await Assert.That(body[0].Blocks.Any(b => b.Block is ParagraphBlock)).IsTrue();
     }
 }

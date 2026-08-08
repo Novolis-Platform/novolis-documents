@@ -6,7 +6,7 @@ namespace Novolis.Documents;
 /// </summary>
 public sealed class PagedDocument
 {
-    /// <summary>Cover / chrome metadata.</summary>
+    /// <summary>Title and bibliographic metadata (feeds First page and header/footer placeholders).</summary>
     public required DocumentMeta Meta { get; init; }
 
     /// <summary>Trim and margins.</summary>
@@ -15,17 +15,14 @@ public sealed class PagedDocument
     /// <summary>Type sizes and fonts.</summary>
     public required Typography Typography { get; init; }
 
-    /// <summary>Body blocks in reading order (do not put cover content here; use <see cref="First"/> / <see cref="IncludeCover"/>).</summary>
+    /// <summary>Main-flow blocks in reading order (not First/Last content; use <see cref="First"/> / <see cref="IncludeCover"/>).</summary>
     public required IReadOnlyList<IBlock> Body { get; init; }
 
-    /// <summary>Running header template.</summary>
-    public RunningChrome? Header { get; init; }
+    /// <summary>Optional page header.</summary>
+    public Header? Header { get; init; }
 
-    /// <summary>Running footer template (often <c>{page}</c>).</summary>
-    public RunningChrome? Footer { get; init; }
-
-    /// <summary>Per-region header/footer visibility. Defaults to page numbers on First/Toc/Last.</summary>
-    public ChromeOptions Chrome { get; init; } = ChromeOptions.Default;
+    /// <summary>Optional page footer (typical home for page numbers).</summary>
+    public Footer? Footer { get; init; }
 
     /// <summary>Optional diagonal text watermark.</summary>
     public Watermark? Watermark { get; init; }
@@ -44,9 +41,6 @@ public sealed class PagedDocument
 
     /// <summary>Optional closing page after body.</summary>
     public LastPage? Last { get; init; }
-
-    /// <summary>When true, suppress header on pages that open with a level-1 heading.</summary>
-    public bool SuppressHeaderOnLevel1Open { get; init; } = true;
 
     /// <summary>True when a first/title page should be emitted.</summary>
     public bool HasFirstPage => IncludeCover || First is not null;

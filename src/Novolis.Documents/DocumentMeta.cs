@@ -1,6 +1,6 @@
 namespace Novolis.Documents;
 
-/// <summary>Document metadata for the first page, chrome placeholders, and exporters.</summary>
+/// <summary>Document metadata for the first page, header/footer placeholders, and exporters.</summary>
 public sealed class DocumentMeta
 {
     /// <summary>Primary title.</summary>

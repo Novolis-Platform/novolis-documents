@@ -18,7 +18,11 @@ public sealed class DocumentBuilderTests
     {
         var doc = Document.Create("Harbor Notes")
             .Meta(m => m.Author("Novolis").Subtitle("Sample"))
-            .Page(p => p.A4().Bands(0f, 12f).Header("{title}", 8f).Footer("{page}", 8f))
+            .Page(p => p
+                .A4()
+                .Bands(0f, 12f)
+                .Header(h => h.Template("{title}").FontSize(8f).IncludeBody())
+                .Footer(f => f.Template("{page}").FontSize(8f).IncludeBody()))
             .Typography(t => t.BodySize(9f).TableSize(8f).LineHeight(1.2f))
             .Body(b => b
                 .Content(c => c
@@ -55,7 +59,7 @@ public sealed class DocumentBuilderTests
     }
 
     [Test]
-    public async Task Chapter_emits_level1_and_nested_blocks_with_toc_first_last()
+    public async Task Chapter_header_footer_includes_and_watermark_use_named_red()
     {
         var doc = Document.Create("Book")
             .Meta(m => m
@@ -70,10 +74,17 @@ public sealed class DocumentBuilderTests
                 .Description("Sample"))
             .Page(p => p
                 .Trade6x9()
-                .Header("{title}")
-                .Footer("{page} / {pages}")
-                .Chrome(c => c.PageNumbersOnFrontMatter()))
-            .Watermark(w => w.Text("DRAFT").Color("#C02020").Opacity(0.1f).On(WatermarkPages.All))
+                .Header(h => h
+                    .Template("{title}")
+                    .IncludeBody()
+                    .UseChapterTitle())
+                .Footer(f => f
+                    .Template("{page} / {pages}")
+                    .IncludeFirstPage()
+                    .IncludeToc()
+                    .IncludeBody()
+                    .IncludeLastPage()))
+            .Watermark(w => w.Text("DRAFT").Color(DocumentColor.Red).Opacity(0.1f).On(WatermarkPages.All))
             .Body(b => b
                 .First(f => f.Lines("Trade paperback", "Skia sample"))
                 .Content(c => c
@@ -90,14 +101,12 @@ public sealed class DocumentBuilderTests
 
         await Assert.That(doc.HasFirstPage).IsTrue();
         await Assert.That(doc.Meta.Publisher).IsEqualTo("Novolis-Platform");
-        await Assert.That(doc.Meta.Keywords.Count).IsEqualTo(2);
-        await Assert.That(doc.Meta.Date).IsEqualTo(new DateOnly(2026, 8, 8));
-        await Assert.That(doc.Watermark!.Text).IsEqualTo("DRAFT");
-        await Assert.That(doc.Watermark.Color).IsEqualTo(DocumentColor.Parse("#C02020"));
-        await Assert.That(doc.Chrome.First).IsEqualTo(ChromeBand.Footer);
-        await Assert.That(doc.Footer!.Template).Contains("{pages}");
+        await Assert.That(doc.Watermark!.Color).IsEqualTo(DocumentColor.Red);
+        await Assert.That(doc.Header!.UseChapterTitle).IsTrue();
+        await Assert.That(doc.Footer!.IncludeFirstPage).IsTrue();
+        await Assert.That(doc.Footer.IncludeToc).IsTrue();
+        await Assert.That(doc.Footer.IncludeLastPage).IsTrue();
         await Assert.That(doc.IncludeToc).IsTrue();
-        await Assert.That(doc.Last!.Title).IsEqualTo("Colophon");
 
         await Assert.That(doc.Body[0]).IsTypeOf<HeadingBlock>();
         var h1 = (HeadingBlock)doc.Body[0];

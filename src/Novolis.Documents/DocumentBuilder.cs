@@ -15,12 +15,10 @@ public sealed class DocumentBuilder
     Thickness _margin = TrimPresets.DefaultMargin;
     Length _headerBand = LengthUnits.FromPoints(16f);
     Length _footerBand = LengthUnits.FromPoints(16f);
-    RunningChrome? _header;
-    RunningChrome? _footer;
-    ChromeOptions _chrome = ChromeOptions.Default;
+    Header? _header;
+    Footer? _footer;
     Watermark? _watermark;
     Typography? _typography;
-    bool _suppressHeaderOnLevel1Open = true;
     readonly DocumentBodyBuilder _body = new();
 
     /// <summary>Primary document title (required for <see cref="Build"/>).</summary>
@@ -46,20 +44,19 @@ public sealed class DocumentBuilder
         return this;
     }
 
-    /// <summary>Configures trim, margins, header, footer, and chrome visibility.</summary>
+    /// <summary>Configures trim, margins, header, and footer.</summary>
     public DocumentBuilder Page(Action<DocumentPageBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
         var page = new DocumentPageBuilder(
-            _trim, _margin, _headerBand, _footerBand, _header, _footer, _chrome);
+            _trim, _margin, _headerBand, _footerBand, _header, _footer);
         configure(page);
         _trim = page.TrimValue;
         _margin = page.MarginValue;
         _headerBand = page.HeaderBandValue;
         _footerBand = page.FooterBandValue;
-        _header = page.HeaderChrome;
-        _footer = page.FooterChrome;
-        _chrome = page.ChromeValue;
+        _header = page.HeaderValue;
+        _footer = page.FooterValue;
         return this;
     }
 
@@ -109,13 +106,6 @@ public sealed class DocumentBuilder
         return this;
     }
 
-    /// <summary>Suppress header on pages that open with a level-1 heading / chapter.</summary>
-    public DocumentBuilder SuppressHeaderOnLevel1Open(bool suppress = true)
-    {
-        _suppressHeaderOnLevel1Open = suppress;
-        return this;
-    }
-
     /// <summary>Materializes an immutable <see cref="PagedDocument"/>.</summary>
     public PagedDocument Build()
     {
@@ -145,13 +135,11 @@ public sealed class DocumentBuilder
             Typography = _typography ?? new Typography(),
             Header = _header,
             Footer = _footer,
-            Chrome = _chrome,
             Watermark = _watermark,
             First = _body.FirstPage,
             Last = _body.LastPage,
             IncludeCover = _body.IncludeCover,
             IncludeToc = _body.IncludeToc,
-            SuppressHeaderOnLevel1Open = _suppressHeaderOnLevel1Open,
             Body = _body.ContentBlocks,
         };
     }

@@ -233,7 +233,7 @@ public sealed class TypographyBuilder
     }
 
     /// <summary>Table cell padding and rule stroke.</summary>
-    public TypographyBuilder TableChrome(float cellPaddingPt, float ruleStrokePt)
+    public TypographyBuilder TableCells(float cellPaddingPt, float ruleStrokePt)
     {
         _tablePadding = cellPaddingPt;
         _tableStroke = ruleStrokePt;
@@ -370,67 +370,145 @@ public sealed class LastPageBuilder
     };
 }
 
-/// <summary>Fluent builder for <see cref="ChromeOptions"/>.</summary>
-public sealed class ChromeOptionsBuilder
+/// <summary>Fluent builder for <see cref="Header"/>.</summary>
+public sealed class HeaderBuilder
 {
-    ChromeBand _first = ChromeBand.Footer;
-    ChromeBand _toc = ChromeBand.Footer;
-    ChromeBand _body = ChromeBand.HeaderAndFooter;
-    ChromeBand _last = ChromeBand.Footer;
+    string _template = string.Empty;
+    float _fontSizePt = 9f;
+    bool _includeFirstPage;
+    bool _includeToc;
+    bool _includeBody = true;
+    bool _includeLastPage;
+    bool _useChapterTitle;
 
-    /// <summary>Opening page bands.</summary>
-    public ChromeOptionsBuilder First(ChromeBand band)
+    /// <summary>Header template.</summary>
+    public HeaderBuilder Template(string template)
     {
-        _first = band;
+        ArgumentNullException.ThrowIfNull(template);
+        _template = template;
         return this;
     }
 
-    /// <summary>TOC page bands.</summary>
-    public ChromeOptionsBuilder Toc(ChromeBand band)
+    /// <summary>Font size in points.</summary>
+    public HeaderBuilder FontSize(float points)
     {
-        _toc = band;
+        _fontSizePt = points;
         return this;
     }
 
-    /// <summary>Body page bands.</summary>
-    public ChromeOptionsBuilder Body(ChromeBand band)
+    /// <summary>Include on the opening / title page.</summary>
+    public HeaderBuilder IncludeFirstPage(bool include = true)
     {
-        _body = band;
+        _includeFirstPage = include;
         return this;
     }
 
-    /// <summary>Last page bands.</summary>
-    public ChromeOptionsBuilder Last(ChromeBand band)
+    /// <summary>Include on TOC pages.</summary>
+    public HeaderBuilder IncludeToc(bool include = true)
     {
-        _last = band;
+        _includeToc = include;
         return this;
     }
 
-    /// <summary>Footer (page numbers) on First, Toc, and Last; header+footer on Body.</summary>
-    public ChromeOptionsBuilder PageNumbersOnFrontMatter()
+    /// <summary>Include on body pages.</summary>
+    public HeaderBuilder IncludeBody(bool include = true)
     {
-        _first = ChromeBand.Footer;
-        _toc = ChromeBand.Footer;
-        _last = ChromeBand.Footer;
+        _includeBody = include;
         return this;
     }
 
-    /// <summary>No chrome on First / Toc / Last.</summary>
-    public ChromeOptionsBuilder QuietFrontMatter()
+    /// <summary>Include on the closing page.</summary>
+    public HeaderBuilder IncludeLastPage(bool include = true)
     {
-        _first = ChromeBand.None;
-        _toc = ChromeBand.None;
-        _last = ChromeBand.None;
+        _includeLastPage = include;
         return this;
     }
 
-    /// <summary>Builds chrome options.</summary>
-    public ChromeOptions Build() => new()
+    /// <summary>
+    /// Use the current chapter title as the header on body pages
+    /// (falls back to <see cref="Template"/> when no chapter is active).
+    /// </summary>
+    public HeaderBuilder UseChapterTitle(bool enabled = true)
     {
-        First = _first,
-        Toc = _toc,
-        Body = _body,
-        Last = _last,
+        _useChapterTitle = enabled;
+        return this;
+    }
+
+    /// <summary>Builds the header.</summary>
+    public Header Build() => new()
+    {
+        Template = _template,
+        FontSizePt = _fontSizePt,
+        IncludeFirstPage = _includeFirstPage,
+        IncludeToc = _includeToc,
+        IncludeBody = _includeBody,
+        IncludeLastPage = _includeLastPage,
+        UseChapterTitle = _useChapterTitle,
+    };
+}
+
+/// <summary>Fluent builder for <see cref="Footer"/>.</summary>
+public sealed class FooterBuilder
+{
+    string _template = string.Empty;
+    float _fontSizePt = 9f;
+    bool _includeFirstPage = true;
+    bool _includeToc = true;
+    bool _includeBody = true;
+    bool _includeLastPage = true;
+
+    /// <summary>Footer template.</summary>
+    public FooterBuilder Template(string template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        _template = template;
+        return this;
+    }
+
+    /// <summary>Font size in points.</summary>
+    public FooterBuilder FontSize(float points)
+    {
+        _fontSizePt = points;
+        return this;
+    }
+
+    /// <summary>Include on the opening / title page.</summary>
+    public FooterBuilder IncludeFirstPage(bool include = true)
+    {
+        _includeFirstPage = include;
+        return this;
+    }
+
+    /// <summary>Include on TOC pages.</summary>
+    public FooterBuilder IncludeToc(bool include = true)
+    {
+        _includeToc = include;
+        return this;
+    }
+
+    /// <summary>Include on body pages.</summary>
+    public FooterBuilder IncludeBody(bool include = true)
+    {
+        _includeBody = include;
+        return this;
+    }
+
+    /// <summary>Include on the closing page.</summary>
+    public FooterBuilder IncludeLastPage(bool include = true)
+    {
+        _includeLastPage = include;
+        return this;
+    }
+
+    /// <summary>Builds the footer.</summary>
+    public Footer Build() => new()
+    {
+        Template = _template,
+        FontSizePt = _fontSizePt,
+        IncludeFirstPage = _includeFirstPage,
+        IncludeToc = _includeToc,
+        IncludeBody = _includeBody,
+        IncludeLastPage = _includeLastPage,
     };
 }
 
@@ -440,7 +518,7 @@ public sealed class WatermarkBuilder
     string _text = "DRAFT";
     float _fontSizePt = 54f;
     float _opacity = 0.12f;
-    DocumentColor _color = DocumentColor.Gray;
+    DocumentColor _color = DocumentColor.Red;
     float _rotation = -32f;
     WatermarkPages _pages = WatermarkPages.All;
 
@@ -466,20 +544,12 @@ public sealed class WatermarkBuilder
         return this;
     }
 
-    /// <summary>Ink color.</summary>
+    /// <summary>Ink color (prefer named colors such as <see cref="DocumentColor.Red"/>).</summary>
     public WatermarkBuilder Color(DocumentColor color)
     {
         _color = color;
         return this;
     }
-
-    /// <summary>Ink color from RGB channels.</summary>
-    public WatermarkBuilder Color(byte r, byte g, byte b) =>
-        Color(DocumentColor.FromRgb(r, g, b));
-
-    /// <summary>Ink color from <c>#RGB</c> / <c>#RRGGBB</c> / <c>#AARRGGBB</c>.</summary>
-    public WatermarkBuilder Color(string hex) =>
-        Color(DocumentColor.Parse(hex));
 
     /// <summary>Rotation in degrees.</summary>
     public WatermarkBuilder Rotation(float degrees)

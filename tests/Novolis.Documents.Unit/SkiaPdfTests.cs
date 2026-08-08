@@ -20,8 +20,14 @@ public sealed class SkiaPdfTests
             Typography = new Typography(),
             IncludeCover = true,
             IncludeToc = true,
-            Footer = new RunningChrome { Template = "{page}" },
-            Header = new RunningChrome { Template = "{title}" },
+            Footer = new Footer
+            {
+                Template = "{page}",
+                IncludeFirstPage = true,
+                IncludeToc = true,
+                IncludeBody = true,
+            },
+            Header = new Header { Template = "{title}", IncludeBody = true },
             Body =
             [
                 new HeadingBlock { Level = 1, Text = "Section One" },

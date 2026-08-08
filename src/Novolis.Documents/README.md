@@ -8,13 +8,15 @@
 
 # Novolis.Documents
 
-Paged document model for Novolis: trim presets, typography, running chrome, and a closed set of content blocks. No Skia, no Markdown — map sources into `PagedDocument` then paginate with `Novolis.Documents.Layout`.
+Paged document model for Novolis: trim presets, typography, header/footer, watermark, and a closed set of content blocks. No Skia, no Markdown — map sources into `PagedDocument`, then paginate with `Novolis.Documents.Layout` and paint with `Novolis.Documents.Skia`.
 
 ## Install
 
 ```bash
 dotnet add package Novolis.Documents
 ```
+
+Requires .NET 10 (`net10.0`). Restore from nuget.org + GitHub Packages (`https://nuget.pkg.github.com/Novolis-Platform/index.json`).
 
 ## Quick start
 
@@ -30,10 +32,14 @@ var document = Document.Create("Sample")
         .Date(new DateOnly(2026, 8, 8)))
     .Page(p => p
         .Trade6x9()
-        .Header("{title}")
-        .Footer("{page} / {pages}")
-        .Chrome(c => c.PageNumbersOnFrontMatter()))
-    .Watermark(w => w.Text("DRAFT").Color("#C02020").Opacity(0.12f))
+        .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
+        .Footer(f => f
+            .Template("{page} / {pages}")
+            .IncludeFirstPage()
+            .IncludeToc()
+            .IncludeBody()
+            .IncludeLastPage()))
+    .Watermark(w => w.Text("DRAFT").Color(DocumentColor.Red).Opacity(0.12f))
     .Body(b => b
         .First(f => f.Lines("Trade sample"))
         .Content(c => c
@@ -45,9 +51,21 @@ var document = Document.Create("Sample")
     .Build();
 ```
 
-`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Page numbers on First/Toc/Last are on by default (`ChromeOptions`); use `.Chrome(c => c.QuietFrontMatter())` to turn them off.
+`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Object initializers on `PagedDocument` remain supported for mappers.
 
 `DefaultMargin` is print-oriented (binding 0.75″ / outer 0.5″ / head 0.5″ / foot 0.65″). Use `TrimPresets.ReportMargin` for uniform 1″.
+
+## Docs
+
+| Doc | Topic |
+| --- | --- |
+| [getting-started](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/getting-started.md) | Install + first PDF |
+| [authoring](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/authoring.md) | Fluent DSL reference |
+| [model](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/model.md) | `PagedDocument` |
+| [blocks](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/blocks.md) | Block catalog |
+| [header-footer](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/header-footer.md) | Header / footer / watermark |
+| [mappers](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/mappers.md) | Mapping pipelines |
+
 ## Related packages
 
 | Package | When to use |

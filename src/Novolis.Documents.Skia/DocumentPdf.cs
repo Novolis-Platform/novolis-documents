@@ -94,60 +94,43 @@ public static class DocumentPdf
         DrawWatermark(canvas, document, page, pageWidth, pageHeight, boldTypeface);
 
         if (page.Kind == PageKind.Cover)
-        {
             DrawCover(canvas, document, typeface, boldTypeface, pageWidth, pageHeight);
-            DrawPageChrome(canvas, document, page, pageCount, typeface, contentX, contentWidth, margin, pageHeight);
-            return;
+        else
+        {
+            foreach (var placed in page.Blocks)
+            {
+                var y = contentTop + placed.YInContentPt;
+                DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
+                    contentX, y, contentWidth);
+            }
         }
 
         if (page.ShowHeader && document.Header is { } header)
         {
-            var text = FormatChrome(header.Template, document, page.Number, pageCount);
+            var text = ResolveHeaderText(header, document, page, pageCount);
             DrawCenteredText(canvas, text, typeface, header.FontSizePt,
                 contentX, margin.Top.Points, contentWidth, document.Setup.HeaderBand.Points);
         }
 
-        foreach (var placed in page.Blocks)
-        {
-            var y = contentTop + placed.YInContentPt;
-            DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
-                contentX, y, contentWidth);
-        }
-
         if (page.ShowFooter && document.Footer is { } footer)
         {
-            var text = FormatChrome(footer.Template, document, page.Number, pageCount);
+            var text = FormatTemplate(footer.Template, document, page.Number, pageCount, page.ChapterTitle);
             var footerY = pageHeight - margin.Bottom.Points - document.Setup.FooterBand.Points;
             DrawCenteredText(canvas, text, typeface, footer.FontSizePt,
                 contentX, footerY, contentWidth, document.Setup.FooterBand.Points);
         }
     }
 
-    static void DrawPageChrome(
-        SKCanvas canvas,
+    static string ResolveHeaderText(
+        Header header,
         PagedDocument document,
         PageSlice page,
-        int pageCount,
-        SKTypeface typeface,
-        float contentX,
-        float contentWidth,
-        Thickness margin,
-        float pageHeight)
+        int pageCount)
     {
-        if (page.ShowHeader && document.Header is { } header)
-        {
-            var text = FormatChrome(header.Template, document, page.Number, pageCount);
-            DrawCenteredText(canvas, text, typeface, header.FontSizePt,
-                contentX, margin.Top.Points, contentWidth, document.Setup.HeaderBand.Points);
-        }
+        if (header.UseChapterTitle && !string.IsNullOrWhiteSpace(page.ChapterTitle))
+            return page.ChapterTitle;
 
-        if (page.ShowFooter && document.Footer is { } footer)
-        {
-            var text = FormatChrome(footer.Template, document, page.Number, pageCount);
-            var footerY = pageHeight - margin.Bottom.Points - document.Setup.FooterBand.Points;
-            DrawCenteredText(canvas, text, typeface, footer.FontSizePt,
-                contentX, footerY, contentWidth, document.Setup.FooterBand.Points);
-        }
+        return FormatTemplate(header.Template, document, page.Number, pageCount, page.ChapterTitle);
     }
 
     static void DrawWatermark(
@@ -728,7 +711,12 @@ public static class DocumentPdf
         return result;
     }
 
-    static string FormatChrome(string template, PagedDocument document, int pageNumber, int pageCount)
+    static string FormatTemplate(
+        string template,
+        PagedDocument document,
+        int pageNumber,
+        int pageCount,
+        string? chapterTitle)
     {
         var meta = document.Meta;
         var date = meta.Date?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
@@ -736,6 +724,7 @@ public static class DocumentPdf
         return template
             .Replace("{page}", pageNumber.ToString(), StringComparison.OrdinalIgnoreCase)
             .Replace("{pages}", pageCount.ToString(), StringComparison.OrdinalIgnoreCase)
+            .Replace("{chapter}", chapterTitle ?? string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("{title}", meta.Title ?? string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("{subtitle}", meta.Subtitle ?? string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("{author}", meta.Author ?? string.Empty, StringComparison.OrdinalIgnoreCase)

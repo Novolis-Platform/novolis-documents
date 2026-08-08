@@ -17,7 +17,7 @@ public static class DocumentPaginator
 
         if (document.HasFirstPage)
         {
-            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Cover);
+            var (showHeader, showFooter) = ResolveBands(document, PageKind.Cover);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Cover,
@@ -45,7 +45,7 @@ public static class DocumentPaginator
 
             if (document.HasFirstPage)
             {
-                var (showHeader, showFooter) = ResolveChrome(document, PageKind.Cover);
+                var (showHeader, showFooter) = ResolveBands(document, PageKind.Cover);
                 pages.Add(new PageSlice
                 {
                     Kind = PageKind.Cover,
@@ -103,6 +103,7 @@ public static class DocumentPaginator
                     Blocks = p.Blocks,
                     ShowHeader = p.ShowHeader,
                     ShowFooter = p.ShowFooter,
+                    ChapterTitle = p.ChapterTitle,
                 };
             }
         }
@@ -137,7 +138,7 @@ public static class DocumentPaginator
 
         void Flush(int number)
         {
-            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Toc);
+            var (showHeader, showFooter) = ResolveBands(document, PageKind.Toc);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Toc,
@@ -167,7 +168,7 @@ public static class DocumentPaginator
 
         if (pages.Count == 0)
         {
-            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Toc);
+            var (showHeader, showFooter) = ResolveBands(document, PageKind.Toc);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Toc,
@@ -199,7 +200,7 @@ public static class DocumentPaginator
         {
             if (blocks.Count == 0)
                 return;
-            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Last);
+            var (showHeader, showFooter) = ResolveBands(document, PageKind.Last);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Last,
@@ -267,16 +268,14 @@ public static class DocumentPaginator
         var blocks = new List<PlacedBlock>();
         float y = 0;
         var pageNumber = startNumber;
-        var pageOpensWithLevel1 = false;
+        string? chapterTitle = null;
         var typography = document.Typography;
 
         void Flush()
         {
             if (blocks.Count == 0)
                 return;
-            var (showHeader, showFooter) = ResolveChrome(document, PageKind.Body);
-            if (showHeader && document.SuppressHeaderOnLevel1Open && pageOpensWithLevel1)
-                showHeader = false;
+            var (showHeader, showFooter) = ResolveBands(document, PageKind.Body);
             pages.Add(new PageSlice
             {
                 Kind = PageKind.Body,
@@ -284,11 +283,11 @@ public static class DocumentPaginator
                 Blocks = blocks.ToList(),
                 ShowHeader = showHeader,
                 ShowFooter = showFooter,
+                ChapterTitle = chapterTitle,
             });
             pageNumber++;
             blocks.Clear();
             y = 0;
-            pageOpensWithLevel1 = false;
         }
 
         foreach (var block in document.Body)
@@ -301,7 +300,7 @@ public static class DocumentPaginator
                 case BlankPageBlock:
                     Flush();
                     {
-                        var (showHeader, showFooter) = ResolveChrome(document, PageKind.Body);
+                        var (showHeader, showFooter) = ResolveBands(document, PageKind.Body);
                         pages.Add(new PageSlice
                         {
                             Kind = PageKind.Body,
@@ -309,13 +308,14 @@ public static class DocumentPaginator
                             Blocks = [],
                             ShowHeader = showHeader,
                             ShowFooter = showFooter,
+                            ChapterTitle = chapterTitle,
                         });
                     }
                     continue;
                 case HeadingBlock { Level: 1 } h1:
                     if (blocks.Count > 0)
                         Flush();
-                    pageOpensWithLevel1 = true;
+                    chapterTitle = h1.Text;
                     level1PageNumbers[h1.Text] = pageNumber;
                     {
                         var style = HeadingStyle(typography, 1);
@@ -618,19 +618,25 @@ public static class DocumentPaginator
         return total;
     }
 
-    static (bool ShowHeader, bool ShowFooter) ResolveChrome(PagedDocument document, PageKind kind)
+    static (bool ShowHeader, bool ShowFooter) ResolveBands(PagedDocument document, PageKind kind)
     {
-        var chrome = document.Chrome ?? ChromeOptions.Default;
-        var band = kind switch
+        var header = document.Header;
+        var footer = document.Footer;
+        var showHeader = header is not null && kind switch
         {
-            PageKind.Cover => chrome.First,
-            PageKind.Toc => chrome.Toc,
-            PageKind.Last => chrome.Last,
-            _ => chrome.Body,
+            PageKind.Cover => header.IncludeFirstPage,
+            PageKind.Toc => header.IncludeToc,
+            PageKind.Last => header.IncludeLastPage,
+            _ => header.IncludeBody,
         };
-        return (
-            ChromeOptions.HasHeader(band) && document.Header is not null,
-            ChromeOptions.HasFooter(band) && document.Footer is not null);
+        var showFooter = footer is not null && kind switch
+        {
+            PageKind.Cover => footer.IncludeFirstPage,
+            PageKind.Toc => footer.IncludeToc,
+            PageKind.Last => footer.IncludeLastPage,
+            _ => footer.IncludeBody,
+        };
+        return (showHeader, showFooter);
     }
 
     static float ContentWidth(PagedDocument document) =>
@@ -638,8 +644,8 @@ public static class DocumentPaginator
 
     static float ContentHeight(PagedDocument document)
     {
-        var chrome = document.Setup.HeaderBand.Points + document.Setup.FooterBand.Points;
-        return document.Setup.Trim.Height.Points - document.Setup.Margin.Vertical.Points - chrome;
+        var bands = document.Setup.HeaderBand.Points + document.Setup.FooterBand.Points;
+        return document.Setup.Trim.Height.Points - document.Setup.Margin.Vertical.Points - bands;
     }
 
     static TextStyle BodyStyle(Typography t) =>

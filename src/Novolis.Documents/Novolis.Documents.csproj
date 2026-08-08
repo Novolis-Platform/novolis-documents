@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Documents</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Paged document model: page setup, typography, chrome, and closed content blocks.</Description>
+    <Description>Paged document model: page setup, typography, header/footer, watermark, and closed content blocks.</Description>
     <RootNamespace>Novolis.Documents</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

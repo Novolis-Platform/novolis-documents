@@ -2,25 +2,23 @@ using Novolis.Math.Measure;
 
 namespace Novolis.Documents;
 
-/// <summary>Fluent page setup: trim, margins, header, footer, and chrome visibility.</summary>
+/// <summary>Fluent page setup: trim, margins, header, and footer.</summary>
 public sealed class DocumentPageBuilder
 {
     Size _trim;
     Thickness _margin;
     Length _headerBand;
     Length _footerBand;
-    RunningChrome? _header;
-    RunningChrome? _footer;
-    ChromeOptions _chrome;
+    Header? _header;
+    Footer? _footer;
 
     internal DocumentPageBuilder(
         Size trim,
         Thickness margin,
         Length headerBand,
         Length footerBand,
-        RunningChrome? header,
-        RunningChrome? footer,
-        ChromeOptions chrome)
+        Header? header,
+        Footer? footer)
     {
         _trim = trim;
         _margin = margin;
@@ -28,16 +26,14 @@ public sealed class DocumentPageBuilder
         _footerBand = footerBand;
         _header = header;
         _footer = footer;
-        _chrome = chrome;
     }
 
     internal Size TrimValue => _trim;
     internal Thickness MarginValue => _margin;
     internal Length HeaderBandValue => _headerBand;
     internal Length FooterBandValue => _footerBand;
-    internal RunningChrome? HeaderChrome => _header;
-    internal RunningChrome? FooterChrome => _footer;
-    internal ChromeOptions ChromeValue => _chrome;
+    internal Header? HeaderValue => _header;
+    internal Footer? FooterValue => _footer;
 
     /// <summary>Page trim size.</summary>
     public DocumentPageBuilder TrimSize(Size trim)
@@ -61,22 +57,6 @@ public sealed class DocumentPageBuilder
     public DocumentPageBuilder Trade6x9() =>
         TrimSize(TrimPresets.Inch6x9).Margins(TrimPresets.DefaultMargin);
 
-    /// <summary>Header template (<c>{page}</c>, <c>{title}</c>, …).</summary>
-    public DocumentPageBuilder Header(string template, float fontSizePt = 9f)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(template);
-        _header = new RunningChrome { Template = template, FontSizePt = fontSizePt };
-        return this;
-    }
-
-    /// <summary>Footer template (often <c>{page}</c> or <c>{page} / {pages}</c>).</summary>
-    public DocumentPageBuilder Footer(string template, float fontSizePt = 9f)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(template);
-        _footer = new RunningChrome { Template = template, FontSizePt = fontSizePt };
-        return this;
-    }
-
     /// <summary>Header and footer band heights in points.</summary>
     public DocumentPageBuilder Bands(float headerBandPt, float footerBandPt)
     {
@@ -85,21 +65,37 @@ public sealed class DocumentPageBuilder
         return this;
     }
 
-    /// <summary>Per-region header/footer visibility (First / Toc / Body / Last).</summary>
-    public DocumentPageBuilder Chrome(Action<ChromeOptionsBuilder> configure)
+    /// <summary>Configures the page header.</summary>
+    public DocumentPageBuilder Header(Action<HeaderBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        var builder = new ChromeOptionsBuilder();
+        var builder = new HeaderBuilder();
         configure(builder);
-        _chrome = builder.Build();
+        _header = builder.Build();
         return this;
     }
 
-    /// <summary>Replaces chrome options with a finished instance.</summary>
-    public DocumentPageBuilder Chrome(ChromeOptions options)
+    /// <summary>Simple header template on body pages.</summary>
+    public DocumentPageBuilder Header(string template, float fontSizePt = 9f) =>
+        Header(h => h.Template(template).FontSize(fontSizePt).IncludeBody());
+
+    /// <summary>Configures the page footer.</summary>
+    public DocumentPageBuilder Footer(Action<FooterBuilder> configure)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        _chrome = options;
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new FooterBuilder();
+        configure(builder);
+        _footer = builder.Build();
         return this;
     }
+
+    /// <summary>Simple footer template on First, Toc, Body, and Last by default.</summary>
+    public DocumentPageBuilder Footer(string template, float fontSizePt = 9f) =>
+        Footer(f => f
+            .Template(template)
+            .FontSize(fontSizePt)
+            .IncludeFirstPage()
+            .IncludeToc()
+            .IncludeBody()
+            .IncludeLastPage());
 }
