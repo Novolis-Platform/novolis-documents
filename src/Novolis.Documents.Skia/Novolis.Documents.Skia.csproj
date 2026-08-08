@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Documents.Skia</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>SkiaSharp PDF writer for Novolis.Documents book page plans.</Description>
+    <RootNamespace>Novolis.Documents.Skia</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.Math.Measure" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
+    <ProjectReference Include="..\Novolis.Documents.Layout\Novolis.Documents.Layout.csproj" />
+  </ItemGroup>
+</Project>

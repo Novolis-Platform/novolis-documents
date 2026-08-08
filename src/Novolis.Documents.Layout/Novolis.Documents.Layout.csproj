@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Documents.Layout</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>One-column book pagination: page plans, text measuring abstraction, chapter breaks.</Description>
+    <RootNamespace>Novolis.Documents.Layout</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.Math.Measure" />
+    <ProjectReference Include="..\Novolis.Documents\Novolis.Documents.csproj" />
+  </ItemGroup>
+</Project>

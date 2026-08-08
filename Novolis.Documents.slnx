@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Novolis.Documents/Novolis.Documents.csproj" />
+    <Project Path="src/Novolis.Documents.Layout/Novolis.Documents.Layout.csproj" />
+    <Project Path="src/Novolis.Documents.Skia/Novolis.Documents.Skia.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Novolis.Documents.Unit/Novolis.Documents.Unit.csproj" />
+  </Folder>
+</Solution>

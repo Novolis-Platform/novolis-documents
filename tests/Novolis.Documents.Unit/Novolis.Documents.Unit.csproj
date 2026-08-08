@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Novolis.Documents.Unit</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" />
+    <PackageReference Include="Novolis.Math.Measure" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Novolis.Documents\Novolis.Documents.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Documents.Layout\Novolis.Documents.Layout.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Documents.Skia\Novolis.Documents.Skia.csproj" />
+  </ItemGroup>
+</Project>
