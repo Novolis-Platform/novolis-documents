@@ -12,6 +12,8 @@ public sealed class TextBoxBuilder
     float _lineHeight = 1.22f;
     float _lineGapPt = 1.5f;
     DocumentColor _textColor = DocumentColor.Gray;
+    float _accentBorderLeftPt;
+    DocumentColor _accentColor = DocumentColor.Gray;
 
     /// <summary>Replaces the box lines.</summary>
     public TextBoxBuilder Lines(params string[] lines)
@@ -69,6 +71,15 @@ public sealed class TextBoxBuilder
         return this;
     }
 
+    /// <summary>Left accent bar (0 disables).</summary>
+    public TextBoxBuilder AccentLeft(float strokePt, DocumentColor? color = null)
+    {
+        _accentBorderLeftPt = strokePt;
+        if (color is { } c)
+            _accentColor = c;
+        return this;
+    }
+
     /// <summary>Builds an immutable <see cref="TextBoxBlock"/>.</summary>
     public TextBoxBlock Build() => new()
     {
@@ -77,6 +88,8 @@ public sealed class TextBoxBuilder
         BorderStrokePt = _borderStrokePt,
         BorderColor = _borderColor,
         Background = _background,
+        AccentBorderLeftPt = _accentBorderLeftPt,
+        AccentColor = _accentColor,
         FontSizePt = _fontSizePt,
         LineHeight = _lineHeight,
         LineGapPt = _lineGapPt,

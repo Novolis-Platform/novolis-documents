@@ -690,7 +690,9 @@ public static class DocumentPaginator
         Action flush)
     {
         var lines = box.Lines.Count == 0 ? (IReadOnlyList<string>)[string.Empty] : box.Lines;
-        var style = new TextStyle(document.Typography.BodyFontFamily, box.FontSizePt, box.LineHeight);
+        var style = box.UseMonospaceFont
+            ? new TextStyle(document.Typography.CodeFontFamily, box.FontSizePt, box.LineHeight)
+            : new TextStyle(document.Typography.BodyFontFamily, box.FontSizePt, box.LineHeight);
         var textWidth = System.Math.Max(8f, width - box.PaddingPt * 2f);
         var lineStep = System.Math.Max(1f, box.FontSizePt * box.LineHeight) + box.LineGapPt;
         var pad = box.PaddingPt * 2f;
@@ -720,10 +722,13 @@ public static class DocumentPaginator
                 BorderStrokePt = box.BorderStrokePt,
                 BorderColor = box.BorderColor,
                 Background = box.Background,
+                AccentBorderLeftPt = box.AccentBorderLeftPt,
+                AccentColor = box.AccentColor,
                 FontSizePt = box.FontSizePt,
                 LineHeight = box.LineHeight,
                 LineGapPt = box.LineGapPt,
                 TextColor = box.TextColor,
+                UseMonospaceFont = box.UseMonospaceFont,
             };
             blocks.Add(new PlacedBlock(slice, y, height));
             y += height + document.Typography.ParagraphSpacingPt;
@@ -734,9 +739,10 @@ public static class DocumentPaginator
         }
     }
 
-    static float MeasureTextBox(TextBoxBlock box, ITextMeasurer measurer, float width)
+    static float MeasureTextBox(TextBoxBlock box, Typography typography, ITextMeasurer measurer, float width)
     {
-        var style = new TextStyle("serif", box.FontSizePt, box.LineHeight);
+        var family = box.UseMonospaceFont ? typography.CodeFontFamily : typography.BodyFontFamily;
+        var style = new TextStyle(family, box.FontSizePt, box.LineHeight);
         var textWidth = System.Math.Max(8f, width - box.PaddingPt * 2f);
         var lineStep = System.Math.Max(1f, box.FontSizePt * box.LineHeight) + box.LineGapPt;
         float total = box.PaddingPt * 2f;
@@ -751,12 +757,16 @@ public static class DocumentPaginator
     {
         Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
         PaddingPt = code.PaddingPt,
-        BorderStrokePt = 0f,
+        BorderStrokePt = code.BorderStrokePt,
+        BorderColor = code.BorderColor,
         Background = code.Background,
+        AccentBorderLeftPt = code.AccentBorderLeftPt,
+        AccentColor = code.AccentColor,
         FontSizePt = code.FontSizePt,
         LineHeight = code.LineHeight,
         LineGapPt = 0f,
         TextColor = code.TextColor,
+        UseMonospaceFont = true,
     };
 
     static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
@@ -766,8 +776,8 @@ public static class DocumentPaginator
             HeadingBlock h => measurer.MeasureHeight(h.Text, width, HeadingStyle(document.Typography, h.Level)),
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             TableBlock t => MeasureTable(t, document, measurer, width),
-            TextBoxBlock box => MeasureTextBox(box, measurer, width),
-            CodeBlock code => MeasureTextBox(AsTextBox(code), measurer, width),
+            TextBoxBlock box => MeasureTextBox(box, document.Typography, measurer, width),
+            CodeBlock code => MeasureTextBox(AsTextBox(code), document.Typography, measurer, width),
             ImageBlock image => System.Math.Max(0f, image.HeightPt),
             ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,
@@ -864,6 +874,7 @@ public static class DocumentPaginator
         {
             1 => new TextStyle(t.BodyFontFamily, t.H1SizePt, t.LineHeight, Bold: true),
             2 => new TextStyle(t.BodyFontFamily, t.H2SizePt, t.LineHeight, Bold: true),
-            _ => new TextStyle(t.BodyFontFamily, t.H3SizePt, t.LineHeight, Bold: true),
+            3 => new TextStyle(t.BodyFontFamily, t.H3SizePt, t.LineHeight, Bold: true),
+            _ => new TextStyle(t.BodyFontFamily, t.H4SizePt, t.LineHeight, Bold: true),
         };
 }

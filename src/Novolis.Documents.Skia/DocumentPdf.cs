@@ -40,7 +40,9 @@ public static class DocumentPdf
 
         using var typeface = LoadTypeface(options.BodyFontPath, bold: false);
         using var boldTypeface = LoadTypeface(options.BoldFontPath ?? options.BodyFontPath, bold: true);
-        var measurer = new SkiaTextMeasurer(typeface, boldTypeface);
+        using var monoTypeface = LoadMonoTypeface(document.Typography.CodeFontFamily);
+        var measurer = new SkiaTextMeasurer(
+            typeface, boldTypeface, monoTypeface, document.Typography.CodeFontFamily);
         var plan = DocumentPaginator.Paginate(document, measurer);
 
         using var stream = new MemoryStream();
@@ -54,7 +56,7 @@ public static class DocumentPdf
             foreach (var page in plan.Pages)
             {
                 using var canvas = pdf.BeginPage(width, height);
-                DrawPage(canvas, document, page, pageCount, typeface, boldTypeface, measurer);
+                DrawPage(canvas, document, page, pageCount, typeface, boldTypeface, monoTypeface, measurer);
                 pdf.EndPage();
             }
 
@@ -71,7 +73,10 @@ public static class DocumentPdf
         options ??= new DocumentPdfOptions();
         using var typeface = LoadTypeface(options.BodyFontPath, bold: false);
         using var boldTypeface = LoadTypeface(options.BoldFontPath ?? options.BodyFontPath, bold: true);
-        return DocumentPaginator.Paginate(document, new SkiaTextMeasurer(typeface, boldTypeface));
+        using var monoTypeface = LoadMonoTypeface(document.Typography.CodeFontFamily);
+        return DocumentPaginator.Paginate(
+            document,
+            new SkiaTextMeasurer(typeface, boldTypeface, monoTypeface, document.Typography.CodeFontFamily));
     }
 
     static void DrawPage(
@@ -81,6 +86,7 @@ public static class DocumentPdf
         int pageCount,
         SKTypeface typeface,
         SKTypeface boldTypeface,
+        SKTypeface monoTypeface,
         SkiaTextMeasurer measurer)
     {
         canvas.Clear(SKColors.White);
@@ -96,7 +102,7 @@ public static class DocumentPdf
         foreach (var placed in page.Blocks)
         {
             var y = contentTop + placed.YInContentPt;
-            DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, measurer,
+            DrawBlock(canvas, document, placed.Block, typeface, boldTypeface, monoTypeface, measurer,
                 contentX, y, contentWidth);
         }
 
@@ -175,6 +181,7 @@ public static class DocumentPdf
         IBlock block,
         SKTypeface typeface,
         SKTypeface boldTypeface,
+        SKTypeface monoTypeface,
         SkiaTextMeasurer measurer,
         float x,
         float y,
@@ -187,7 +194,8 @@ public static class DocumentPdf
                 {
                     1 => document.Typography.H1SizePt,
                     2 => document.Typography.H2SizePt,
-                    _ => document.Typography.H3SizePt,
+                    3 => document.Typography.H3SizePt,
+                    _ => document.Typography.H4SizePt,
                 };
                 DrawWrappedText(canvas, h.Text, boldTypeface, hs, document.Typography.LineHeight, x, y, width);
                 break;
@@ -199,26 +207,36 @@ public static class DocumentPdf
                 DrawTable(canvas, document, table, typeface, boldTypeface, x, y, width);
                 break;
             case TextBoxBlock textBox:
-                DrawTextBox(canvas, textBox, typeface, x, y, width);
+                DrawTextBox(
+                    canvas,
+                    textBox,
+                    textBox.UseMonospaceFont ? monoTypeface : typeface,
+                    x,
+                    y,
+                    width);
                 break;
             case CodeBlock code:
                 DrawTextBox(canvas, new TextBoxBlock
                 {
                     Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
                     PaddingPt = code.PaddingPt,
-                    BorderStrokePt = 0f,
+                    BorderStrokePt = code.BorderStrokePt,
+                    BorderColor = code.BorderColor,
                     Background = code.Background,
+                    AccentBorderLeftPt = code.AccentBorderLeftPt,
+                    AccentColor = code.AccentColor,
                     FontSizePt = code.FontSizePt,
                     LineHeight = code.LineHeight,
                     LineGapPt = 0f,
                     TextColor = code.TextColor,
-                }, typeface, x, y, width);
+                    UseMonospaceFont = true,
+                }, monoTypeface, x, y, width);
                 break;
             case ImageBlock image:
                 DrawImage(canvas, image, x, y);
                 break;
             case ColumnsBlock columns:
-                DrawColumns(canvas, document, columns, typeface, boldTypeface, measurer, x, y, width);
+                DrawColumns(canvas, document, columns, typeface, boldTypeface, monoTypeface, measurer, x, y, width);
                 break;
             case SceneBreakBlock s:
                 DrawCenteredText(canvas, s.Ornament, typeface, document.Typography.SceneBreakSizePt,
@@ -235,6 +253,7 @@ public static class DocumentPdf
         ColumnsBlock columns,
         SKTypeface typeface,
         SKTypeface boldTypeface,
+        SKTypeface monoTypeface,
         SkiaTextMeasurer measurer,
         float x,
         float y,
@@ -270,7 +289,7 @@ public static class DocumentPdf
             float cy = y;
             foreach (var child in columns.Columns[i])
             {
-                DrawBlock(canvas, document, child, typeface, boldTypeface, measurer, cx, cy, colWidths[i]);
+                DrawBlock(canvas, document, child, typeface, boldTypeface, monoTypeface, measurer, cx, cy, colWidths[i]);
                 var h = child switch
                 {
                     ImageBlock img => img.HeightPt,
@@ -280,7 +299,8 @@ public static class DocumentPdf
                             {
                                 1 => document.Typography.H1SizePt,
                                 2 => document.Typography.H2SizePt,
-                                _ => document.Typography.H3SizePt,
+                                3 => document.Typography.H3SizePt,
+                                _ => document.Typography.H4SizePt,
                             },
                             document.Typography.LineHeight,
                             Bold: true)),
@@ -447,6 +467,18 @@ public static class DocumentPdf
                 StrokeWidth = box.BorderStrokePt,
             };
             canvas.DrawRect(x, y, width, height, border);
+        }
+
+        if (box.AccentBorderLeftPt > 0f)
+        {
+            var ac = box.AccentColor;
+            using var accent = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(ac.R, ac.G, ac.B),
+                Style = SKPaintStyle.Fill,
+            };
+            canvas.DrawRect(x, y, box.AccentBorderLeftPt, height, accent);
         }
 
         var ink = box.TextColor;
@@ -755,6 +787,29 @@ public static class DocumentPdf
             bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
             SKFontStyleWidth.Normal,
             SKFontStyleSlant.Upright) ?? SKTypeface.Default;
+    }
+
+    static SKTypeface LoadMonoTypeface(string? family)
+    {
+        foreach (var name in new[]
+                 {
+                     string.IsNullOrWhiteSpace(family) ? "Consolas" : family.Trim(),
+                     "Consolas",
+                     "Courier New",
+                     "Liberation Mono",
+                     "Courier",
+                 })
+        {
+            var tf = SKTypeface.FromFamilyName(
+                name,
+                SKFontStyleWeight.Normal,
+                SKFontStyleWidth.Normal,
+                SKFontStyleSlant.Upright);
+            if (tf is not null)
+                return tf;
+        }
+
+        return SKTypeface.Default;
     }
 
     static SKTypeface? LoadEmbeddedTypeface(string resourceName)

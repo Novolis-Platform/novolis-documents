@@ -19,10 +19,10 @@ public sealed class TocBlock : IBlock
 /// <param name="PageNumber">1-based page number within the finished plan (0 until layout fills).</param>
 public sealed record TocEntry(string Title, int PageNumber = 0);
 
-/// <summary>Heading levels 1–3. Level 1 forces a page break when prior content exists.</summary>
+/// <summary>Heading levels 1–4. Level 1 forces a page break when prior content exists.</summary>
 public sealed class HeadingBlock : IBlock
 {
-    /// <summary>1 = top-level section, 2 = subsection, 3 = sub-subsection.</summary>
+    /// <summary>1 = top-level section, 2–4 = nested headings.</summary>
     public required int Level { get; init; }
 
     /// <summary>Heading text.</summary>
@@ -151,6 +151,12 @@ public sealed class TextBoxBlock : IBlock
     /// <summary>Optional fill behind the text (null = none).</summary>
     public DocumentColor? Background { get; init; } = DocumentColor.LightGray;
 
+    /// <summary>Optional left accent bar width in points (0 = none).</summary>
+    public float AccentBorderLeftPt { get; init; }
+
+    /// <summary>Left accent bar color (used when <see cref="AccentBorderLeftPt"/> &gt; 0).</summary>
+    public DocumentColor AccentColor { get; init; } = DocumentColor.Gray;
+
     /// <summary>Font size in points.</summary>
     public float FontSizePt { get; init; } = 8.5f;
 
@@ -162,6 +168,9 @@ public sealed class TextBoxBlock : IBlock
 
     /// <summary>Ink color for lines.</summary>
     public DocumentColor TextColor { get; init; } = DocumentColor.Gray;
+
+    /// <summary>When true, layout/paint use <see cref="Typography.CodeFontFamily"/>.</summary>
+    public bool UseMonospaceFont { get; init; }
 }
 
 /// <summary>
@@ -186,6 +195,18 @@ public sealed class CodeBlock : IBlock
 
     /// <summary>Fill behind the text (null = light gray).</summary>
     public DocumentColor? Background { get; init; } = DocumentColor.LightGray;
+
+    /// <summary>Outer border stroke in points (0 = no full box border).</summary>
+    public float BorderStrokePt { get; init; }
+
+    /// <summary>Border ink.</summary>
+    public DocumentColor BorderColor { get; init; } = DocumentColor.Gray;
+
+    /// <summary>Optional left accent bar width in points (0 = none).</summary>
+    public float AccentBorderLeftPt { get; init; }
+
+    /// <summary>Left accent bar color.</summary>
+    public DocumentColor AccentColor { get; init; } = DocumentColor.Gray;
 
     /// <summary>Ink color for lines.</summary>
     public DocumentColor TextColor { get; init; } = DocumentColor.Black;

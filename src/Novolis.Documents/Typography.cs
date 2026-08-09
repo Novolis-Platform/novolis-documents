@@ -18,6 +18,12 @@ public sealed class Typography
     /// <summary>Level-3 heading size in points.</summary>
     public float H3SizePt { get; init; } = 12f;
 
+    /// <summary>Level-4 heading size in points.</summary>
+    public float H4SizePt { get; init; } = 11f;
+
+    /// <summary>Monospace family for code panels (Skia resolves via family name).</summary>
+    public string CodeFontFamily { get; init; } = "Consolas";
+
     /// <summary>Scene-break ornament size in points.</summary>
     public float SceneBreakSizePt { get; init; } = 18f;
 
