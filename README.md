@@ -6,17 +6,24 @@
 </p>
 
 <p align="center">
-  <strong>Narrow paged PDF island</strong><br/>
-  Document model, one-column layout, SkiaSharp PDF — not a QuestPDF clone.
+  <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/banners/novolis-documents.svg" width="100%" alt="novolis-documents"/>
 </p>
 
 <p align="center">
+  <strong>One-column pages to Skia PDF</strong><br/>
+  Immutable document blocks, layout, and Skia PDF — not HTML-to-PDF.
+</p>
+
+<p align="center">
+  <a href="https://novolis-platform.github.io/.github/novolis-documents/"><img src="https://img.shields.io/badge/docs-portfolio-0a7ea3" alt="docs"/></a>
   <a href="https://github.com/Novolis-Platform/novolis-documents/actions"><img src="https://img.shields.io/github/actions/workflow/status/Novolis-Platform/novolis-documents/merge.yml?branch=main&label=merge&logo=github" alt="merge"/></a>
   <a href="https://github.com/orgs/Novolis-Platform/packages?repo_name=novolis-documents"><img src="https://img.shields.io/badge/packages-GitHub%20Packages-0a7ea3?logo=nuget" alt="packages"/></a>
   <a href="https://github.com/Novolis-Platform"><img src="https://img.shields.io/badge/org-Novolis--Platform-111827" alt="org"/></a>
 </p>
 
 <p align="center">
+  <a href="https://novolis-platform.github.io/.github/novolis-documents/">Docs</a>
+  ·
   <a href="https://nuget.pkg.github.com/Novolis-Platform/index.json"><code>https://nuget.pkg.github.com/Novolis-Platform/index.json</code></a>
   ·
   <a href="https://github.com/Novolis-Platform/.github/blob/main/profile/README.md">Org landing</a>
@@ -82,3 +89,4 @@ DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\harbor-notes.pdf
 dotnet build d:\novolis\novolis-documents\Novolis.Documents.slnx -p:NovolisUseProjectReferences=true
 dotnet test d:\novolis\novolis-documents\tests\Novolis.Documents.Unit\Novolis.Documents.Unit.csproj -p:NovolisUseProjectReferences=true
 ```
+
