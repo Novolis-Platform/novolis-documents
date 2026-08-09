@@ -289,7 +289,7 @@ public static class DocumentPaginator
                     PlaceTextBox(textBox, document, measurer, width, contentHeight, ref y, blocks, Flush);
                     continue;
                 case CodeBlock code:
-                    PlaceTextBox(AsTextBox(code), document, measurer, width, contentHeight, ref y, blocks, Flush);
+                    PlaceCode(code, document, measurer, width, contentHeight, ref y, blocks, Flush);
                     continue;
                 case HeadingBlock heading:
                 {
@@ -420,7 +420,7 @@ public static class DocumentPaginator
                         ref y, blocks, Flush);
                     continue;
                 case CodeBlock code:
-                    PlaceTextBox(AsTextBox(code), document, measurer, width, contentHeight,
+                    PlaceCode(code, document, measurer, width, contentHeight,
                         ref y, blocks, Flush);
                     continue;
                 case ColumnsBlock columns:
@@ -739,6 +739,62 @@ public static class DocumentPaginator
         }
     }
 
+    static void PlaceCode(
+        CodeBlock code,
+        PagedDocument document,
+        ITextMeasurer measurer,
+        float width,
+        float contentHeight,
+        ref float y,
+        List<PlacedBlock> blocks,
+        Action flush)
+    {
+        var lines = code.ResolveLines();
+        var lineStep = System.Math.Max(1f, code.FontSizePt * code.LineHeight);
+        var pad = code.PaddingPt * 2f;
+        var index = 0;
+        var lineNumber = code.FirstLineNumber;
+
+        while (index < lines.Count)
+        {
+            var chrome = pad;
+            if (y + chrome + lineStep > contentHeight && blocks.Count > 0)
+                flush();
+
+            var remaining = System.Math.Max(lineStep, contentHeight - y - chrome);
+            var maxLines = System.Math.Max(1, (int)(remaining / lineStep));
+            var take = System.Math.Min(maxLines, lines.Count - index);
+            var sliceLines = lines.Skip(index).Take(take).ToArray();
+            var height = chrome + take * lineStep;
+
+            var slice = new CodeBlock
+            {
+                Lines = [],
+                StyledLines = sliceLines,
+                Language = code.Language,
+                ShowLineNumbers = code.ShowLineNumbers,
+                FirstLineNumber = lineNumber,
+                LineNumberColor = code.LineNumberColor,
+                PaddingPt = code.PaddingPt,
+                FontSizePt = code.FontSizePt,
+                LineHeight = code.LineHeight,
+                Background = code.Background,
+                BorderStrokePt = code.BorderStrokePt,
+                BorderColor = code.BorderColor,
+                AccentBorderLeftPt = code.AccentBorderLeftPt,
+                AccentColor = code.AccentColor,
+                TextColor = code.TextColor,
+            };
+            blocks.Add(new PlacedBlock(slice, y, height));
+            y += height + document.Typography.ParagraphSpacingPt;
+            index += take;
+            lineNumber += take;
+
+            if (index < lines.Count)
+                flush();
+        }
+    }
+
     static float MeasureTextBox(TextBoxBlock box, Typography typography, ITextMeasurer measurer, float width)
     {
         var family = box.UseMonospaceFont ? typography.CodeFontFamily : typography.BodyFontFamily;
@@ -753,21 +809,12 @@ public static class DocumentPaginator
         return total;
     }
 
-    static TextBoxBlock AsTextBox(CodeBlock code) => new()
+    static float MeasureCode(CodeBlock code)
     {
-        Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
-        PaddingPt = code.PaddingPt,
-        BorderStrokePt = code.BorderStrokePt,
-        BorderColor = code.BorderColor,
-        Background = code.Background,
-        AccentBorderLeftPt = code.AccentBorderLeftPt,
-        AccentColor = code.AccentColor,
-        FontSizePt = code.FontSizePt,
-        LineHeight = code.LineHeight,
-        LineGapPt = 0f,
-        TextColor = code.TextColor,
-        UseMonospaceFont = true,
-    };
+        var lines = code.ResolveLines();
+        var lineStep = System.Math.Max(1f, code.FontSizePt * code.LineHeight);
+        return code.PaddingPt * 2f + System.Math.Max(1, lines.Count) * lineStep;
+    }
 
     static float MeasureBlock(IBlock block, PagedDocument document, ITextMeasurer measurer, float width)
     {
@@ -777,7 +824,7 @@ public static class DocumentPaginator
             ParagraphBlock p => measurer.MeasureHeight(p.Text, width, BodyStyle(document.Typography)),
             TableBlock t => MeasureTable(t, document, measurer, width),
             TextBoxBlock box => MeasureTextBox(box, document.Typography, measurer, width),
-            CodeBlock code => MeasureTextBox(AsTextBox(code), document.Typography, measurer, width),
+            CodeBlock code => MeasureCode(code),
             ImageBlock image => System.Math.Max(0f, image.HeightPt),
             ColumnsBlock columns => MeasureColumns(columns, document, measurer, width),
             SceneBreakBlock s => measurer.MeasureHeight(s.Ornament, width,

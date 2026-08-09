@@ -216,21 +216,7 @@ public static class DocumentPdf
                     width);
                 break;
             case CodeBlock code:
-                DrawTextBox(canvas, new TextBoxBlock
-                {
-                    Lines = code.Lines.Count == 0 ? [string.Empty] : code.Lines,
-                    PaddingPt = code.PaddingPt,
-                    BorderStrokePt = code.BorderStrokePt,
-                    BorderColor = code.BorderColor,
-                    Background = code.Background,
-                    AccentBorderLeftPt = code.AccentBorderLeftPt,
-                    AccentColor = code.AccentColor,
-                    FontSizePt = code.FontSizePt,
-                    LineHeight = code.LineHeight,
-                    LineGapPt = 0f,
-                    TextColor = code.TextColor,
-                    UseMonospaceFont = true,
-                }, monoTypeface, x, y, width);
+                DrawCode(canvas, code, monoTypeface, x, y, width);
                 break;
             case ImageBlock image:
                 DrawImage(canvas, image, x, y);
@@ -415,6 +401,108 @@ public static class DocumentPdf
         canvas.Translate(x, y);
         canvas.Scale(scale);
         canvas.DrawPicture(svg.Picture);
+        canvas.Restore();
+    }
+
+    static void DrawCode(
+        SKCanvas canvas,
+        CodeBlock code,
+        SKTypeface monoTypeface,
+        float x,
+        float y,
+        float width)
+    {
+        var pad = System.Math.Max(0f, code.PaddingPt);
+        var fontSize = System.Math.Max(6f, code.FontSizePt);
+        var lineStep = fontSize * System.Math.Max(1f, code.LineHeight);
+        var lines = code.ResolveLines();
+        var height = pad * 2f + System.Math.Max(1, lines.Count) * lineStep;
+
+        if (code.Background is { } bg)
+        {
+            using var fill = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(bg.R, bg.G, bg.B),
+                Style = SKPaintStyle.Fill,
+            };
+            canvas.DrawRect(x, y, width, height, fill);
+        }
+
+        if (code.BorderStrokePt > 0f)
+        {
+            var bc = code.BorderColor;
+            using var border = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(bc.R, bc.G, bc.B),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = code.BorderStrokePt,
+            };
+            canvas.DrawRect(x, y, width, height, border);
+        }
+
+        if (code.AccentBorderLeftPt > 0f)
+        {
+            var ac = code.AccentColor;
+            using var accent = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(ac.R, ac.G, ac.B),
+                Style = SKPaintStyle.Fill,
+            };
+            canvas.DrawRect(x, y, code.AccentBorderLeftPt, height, accent);
+        }
+
+        using var font = new SKFont(monoTypeface, fontSize);
+        var gutter = 0f;
+        if (code.ShowLineNumbers)
+        {
+            var lastNum = code.FirstLineNumber + System.Math.Max(0, lines.Count - 1);
+            var digits = System.Math.Max(2, lastNum.ToString().Length);
+            gutter = font.MeasureText(new string('0', digits)) + 8f;
+        }
+
+        var textLeft = x + pad + gutter;
+        canvas.Save();
+        canvas.ClipRect(new SKRect(x, y, x + width, y + height));
+
+        var ty = y + pad + fontSize;
+        var lineNo = code.FirstLineNumber;
+        foreach (var line in lines)
+        {
+            if (code.ShowLineNumbers)
+            {
+                var ln = code.LineNumberColor;
+                using var lnPaint = new SKPaint
+                {
+                    IsAntialias = true,
+                    Color = new SKColor(ln.R, ln.G, ln.B),
+                };
+                var label = lineNo.ToString();
+                var labelW = font.MeasureText(label);
+                canvas.DrawText(label, textLeft - 6f - labelW, ty, SKTextAlign.Left, font, lnPaint);
+            }
+
+            var tx = textLeft;
+            foreach (var span in line.Spans)
+            {
+                if (string.IsNullOrEmpty(span.Text))
+                    continue;
+                var ink = span.Color ?? code.TextColor;
+                using var paint = new SKPaint
+                {
+                    IsAntialias = true,
+                    Color = new SKColor(ink.R, ink.G, ink.B),
+                };
+                canvas.DrawText(span.Text, tx, ty, SKTextAlign.Left, font, paint);
+                tx += font.MeasureText(span.Text);
+            }
+
+            ty += lineStep;
+            lineNo++;
+        }
+
         canvas.Restore();
     }
 

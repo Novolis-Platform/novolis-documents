@@ -84,4 +84,69 @@ public sealed class SkiaPdfTests
         await Assert.That(bytes.Length).IsGreaterThan(800);
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
     }
+
+    [Test]
+    public async Task ToBytes_code_block_with_line_numbers_and_spans()
+    {
+        var document = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Code" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography { CodeFontFamily = "Consolas" },
+            IncludeCover = false,
+            IncludeToc = false,
+            Body =
+            [
+                new CodeBlock
+                {
+                    ShowLineNumbers = true,
+                    FirstLineNumber = 1,
+                    AccentBorderLeftPt = 3f,
+                    AccentColor = DocumentColor.Parse("#4a90e2"),
+                    Background = DocumentColor.Parse("#f8f8f8"),
+                    BorderStrokePt = 0.6f,
+                    StyledLines =
+                    [
+                        new CodeLine
+                        {
+                            Spans =
+                            [
+                                new CodeSpan("public ", DocumentColor.Parse("#0550ae")),
+                                new CodeSpan("void ", DocumentColor.Parse("#0550ae")),
+                                new CodeSpan("Run()", DocumentColor.Parse("#1a1a1a")),
+                            ],
+                        },
+                        CodeLine.FromPlain("{"),
+                        new CodeLine
+                        {
+                            Spans =
+                            [
+                                new CodeSpan("  "),
+                                new CodeSpan("Console", DocumentColor.Parse("#267f99")),
+                                new CodeSpan(".WriteLine("),
+                                new CodeSpan("\"hi\"", DocumentColor.Parse("#a31515")),
+                                new CodeSpan(");"),
+                            ],
+                        },
+                        CodeLine.FromPlain("}"),
+                    ],
+                },
+            ],
+        };
+
+        var plan = DocumentPdf.Layout(document);
+        await Assert.That(plan.Pages.Count).IsEqualTo(1);
+        var placed = plan.Pages[0].Blocks.Single().Block as CodeBlock;
+        await Assert.That(placed).IsNotNull();
+        await Assert.That(placed!.ShowLineNumbers).IsTrue();
+        await Assert.That(placed.StyledLines!.Count).IsEqualTo(4);
+
+        var bytes = DocumentPdf.ToBytes(document);
+        await Assert.That(bytes.Length).IsGreaterThan(400);
+        await Assert.That(bytes[0]).IsEqualTo((byte)'%');
+    }
 }
