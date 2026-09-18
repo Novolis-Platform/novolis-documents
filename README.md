@@ -45,8 +45,9 @@
 | `Novolis.Documents.Layout` | `dotnet add package Novolis.Documents.Layout` | [README](https://github.com/Novolis-Platform/novolis-documents/blob/main/src/Novolis.Documents.Layout/README.md) |
 | `Novolis.Documents.Skia` | `dotnet add package Novolis.Documents.Skia` | [README](https://github.com/Novolis-Platform/novolis-documents/blob/main/src/Novolis.Documents.Skia/README.md) |
 
-<!-- novolis-package-index:end -->
+For NuGet.org and Visual Studio, the **embedded** README.md inside each package is authoritative.
 
+<!-- novolis-package-index:end -->
 # novolis-documents
 
 MIT paged PDF island for Novolis: customary trims (6×9 primary), First / Toc / Body / Last spine, header & footer, Skia paint. Domain-agnostic public API.
