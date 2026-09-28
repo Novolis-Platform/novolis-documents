@@ -6,7 +6,7 @@
     <RootNamespace>Novolis.Documents.Layout</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Novolis.Math.Measure" />
+    <LibraryReference Include="Novolis.Math.Measure" />
     <ProjectReference Include="..\Novolis.Documents\Novolis.Documents.csproj" />
   </ItemGroup>
 </Project>

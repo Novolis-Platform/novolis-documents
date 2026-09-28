@@ -6,7 +6,7 @@
     <RootNamespace>Novolis.Documents.Skia</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Novolis.Math.Measure" />
+    <LibraryReference Include="Novolis.Math.Measure" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />

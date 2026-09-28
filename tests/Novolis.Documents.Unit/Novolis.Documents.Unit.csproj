@@ -6,9 +6,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" />
-    <PackageReference Include="Novolis.Math.Measure" />
-    <PackageReference Include="Novolis.Xsd.Ubl" />
-    <PackageReference Include="Novolis.Xsd.Ubl.Lean" />
+    <LibraryReference Include="Novolis.Math.Measure" />
+    <LibraryReference Include="Novolis.Xsd.Ubl" />
+    <LibraryReference Include="Novolis.Xsd.Ubl.Lean" />
     <PackageReference Include="TUnit" />
   </ItemGroup>
   <ItemGroup>
