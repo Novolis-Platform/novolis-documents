@@ -36,7 +36,7 @@ public sealed class PagedDocument
     /// <summary>When true, emit a first/title page from <see cref="Meta"/> (and <see cref="First"/> when present).</summary>
     public bool IncludeCover { get; init; } = true;
 
-    /// <summary>When true, insert a contents page after the first page from level-1 headings.</summary>
+    /// <summary>When true, collect heading bookmarks for the PDF outline. No contents page is painted.</summary>
     public bool IncludeToc { get; init; }
 
     /// <summary>Optional closing page after body.</summary>

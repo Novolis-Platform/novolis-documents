@@ -65,7 +65,7 @@ public sealed class LayoutTests
         await Assert.That(plan.Pages[0].Kind).IsEqualTo(PageKind.Cover);
         await Assert.That(plan.Pages[0].ShowHeader).IsFalse();
         await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
-        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Toc).All(p => !p.ShowHeader && !p.ShowFooter)).IsTrue();
+        await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Toc)).IsFalse();
         await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Body).All(p => p.ShowHeader && p.ShowFooter)).IsTrue();
         await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Last).All(p => !p.ShowHeader && !p.ShowFooter)).IsTrue();
     }
@@ -109,7 +109,7 @@ public sealed class LayoutTests
 
         var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
         await Assert.That(plan.Pages[0].ShowFooter).IsFalse();
-        await Assert.That(plan.Pages.Where(p => p.Kind == PageKind.Toc).All(p => !p.ShowFooter)).IsTrue();
+        await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Toc)).IsFalse();
     }
 
     [Test]
@@ -171,13 +171,7 @@ public sealed class LayoutTests
         await Assert.That(plan.TocEntries[2].Title).IsEqualTo("Other");
         await Assert.That(plan.TocEntries[0].PageNumber).IsLessThan(plan.TocEntries[1].PageNumber);
         await Assert.That(plan.TocEntries[1].PageNumber).IsLessThan(plan.TocEntries[2].PageNumber);
-
-        var toc = plan.Pages.First(p => p.Kind == PageKind.Toc);
-        var lines = toc.Blocks.Select(b => b.Block).OfType<ParagraphBlock>().Select(p => p.Text).ToArray();
-        await Assert.That(lines.Length).IsEqualTo(3);
-        await Assert.That(lines[0]).Contains("Same");
-        await Assert.That(lines[0]).Contains(plan.TocEntries[0].PageNumber.ToString());
-        await Assert.That(lines[2]).Contains("Other");
+        await Assert.That(plan.Pages.Any(p => p.Kind == PageKind.Toc)).IsFalse();
     }
 
     [Test]

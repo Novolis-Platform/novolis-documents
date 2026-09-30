@@ -10,10 +10,10 @@ public sealed class DocumentContentBuilder
     /// <summary>Blocks accumulated so far (live view).</summary>
     public IReadOnlyList<IBlock> Blocks => _blocks;
 
-    /// <summary>When true, emit a table-of-contents page from chapter / level-1 headings.</summary>
+    /// <summary>When true, collect heading bookmarks for the PDF outline. No contents page is painted.</summary>
     public bool IncludeToc { get; private set; }
 
-    /// <summary>Request a TOC page before the main content flow.</summary>
+    /// <summary>Request outline bookmarks from chapter / level-1 headings (not a painted TOC page).</summary>
     public DocumentContentBuilder Toc(bool include = true)
     {
         IncludeToc = include;

@@ -13,4 +13,10 @@ public sealed class DocumentPdfOptions
 
     /// <summary>Optional path to a bold font file. Overrides the embedded Liberation Serif Bold subset.</summary>
     public string? BoldFontPath { get; init; }
+
+    /// <summary>
+    /// When set, these bookmarks replace the outline built from level-1 headings.
+    /// Page numbers must match the finished layout (1-based).
+    /// </summary>
+    public IReadOnlyList<PdfOutlineEntry>? Outlines { get; init; }
 }

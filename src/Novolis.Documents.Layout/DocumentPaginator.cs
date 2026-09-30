@@ -20,41 +20,11 @@ public static class DocumentPaginator
 
         var bodyStartNumber = pages.Count + 1;
         var bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1);
+        pages.AddRange(bodyPages);
 
         List<TocEntry> tocEntries = [];
         if (document.IncludeToc)
-        {
             tocEntries = [.. level1];
-
-            pages.Clear();
-            level1.Clear();
-
-            if (document.HasFirstPage)
-                pages.AddRange(BuildFirstPages(document, measurer, startNumber: 1));
-
-            var tocPageCount = EstimateTocPageCount(document, measurer, tocEntries);
-            var tocStart = pages.Count + 1;
-            bodyStartNumber = tocStart + tocPageCount;
-            bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1);
-            tocEntries = [.. level1];
-
-            pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
-            var actualBodyStart = pages.Count + 1;
-            if (actualBodyStart != bodyStartNumber)
-            {
-                level1.Clear();
-                bodyPages = PaginateBody(document, measurer, actualBodyStart, level1);
-                tocEntries = [.. level1];
-                pages.RemoveAll(p => p.Kind == PageKind.Toc);
-                pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
-            }
-
-            pages.AddRange(bodyPages);
-        }
-        else
-        {
-            pages.AddRange(bodyPages);
-        }
 
         if (document.Last is { } last && (last.Lines.Count > 0 || last.Blocks.Count > 0 || !string.IsNullOrWhiteSpace(last.Title)))
             pages.AddRange(BuildLastPages(document, measurer, last, pages.Count + 1));
@@ -77,77 +47,6 @@ public static class DocumentPaginator
         }
 
         return new PagePlan { Pages = pages, TocEntries = tocEntries };
-    }
-
-    static int EstimateTocPageCount(PagedDocument document, ITextMeasurer measurer, IReadOnlyList<TocEntry> entries)
-    {
-        if (entries.Count == 0)
-            return 1;
-        return System.Math.Max(1, BuildTocPages(document, measurer, entries, startNumber: 1).Count);
-    }
-
-    static List<PageSlice> BuildTocPages(
-        PagedDocument document,
-        ITextMeasurer measurer,
-        IReadOnlyList<TocEntry> entries,
-        int startNumber)
-    {
-        var pages = new List<PageSlice>();
-        var contentHeight = ContentHeight(document);
-        var width = ContentWidth(document);
-        var titleStyle = new TextStyle(document.Typography.BodyFontFamily, 16f, document.Typography.LineHeight, Bold: true);
-        var lineStyle = BodyStyle(document.Typography);
-
-        var blocks = new List<PlacedBlock>();
-        float y = 0;
-        var titleH = measurer.MeasureHeight("Contents", width, titleStyle);
-        blocks.Add(new PlacedBlock(new HeadingBlock { Level = 2, Text = "Contents" }, y, titleH));
-        y += titleH + document.Typography.ParagraphSpacingPt * 2;
-
-        void Flush(int number)
-        {
-            var (showHeader, showFooter) = ResolveBands(document, PageKind.Toc);
-            pages.Add(new PageSlice
-            {
-                Kind = PageKind.Toc,
-                Number = number,
-                Blocks = blocks.ToList(),
-                ShowHeader = showHeader,
-                ShowFooter = showFooter,
-            });
-            blocks.Clear();
-            y = 0;
-        }
-
-        var pageNumber = startNumber;
-        foreach (var entry in entries)
-        {
-            var text = $"{entry.Title} …… {entry.PageNumber}";
-            var h = measurer.MeasureHeight(text, width, lineStyle);
-            if (y + h > contentHeight && blocks.Count > 0)
-                Flush(pageNumber++);
-
-            blocks.Add(new PlacedBlock(new ParagraphBlock { Text = text }, y, h));
-            y += h + document.Typography.ParagraphSpacingPt;
-        }
-
-        if (blocks.Count > 0)
-            Flush(pageNumber);
-
-        if (pages.Count == 0)
-        {
-            var (showHeader, showFooter) = ResolveBands(document, PageKind.Toc);
-            pages.Add(new PageSlice
-            {
-                Kind = PageKind.Toc,
-                Number = startNumber,
-                Blocks = [new PlacedBlock(new HeadingBlock { Level = 2, Text = "Contents" }, 0, titleH)],
-                ShowHeader = showHeader,
-                ShowFooter = showFooter,
-            });
-        }
-
-        return pages;
     }
 
     static List<PageSlice> BuildFirstPages(PagedDocument document, ITextMeasurer measurer, int startNumber)

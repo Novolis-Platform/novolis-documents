@@ -6,7 +6,7 @@ using Novolis.Documents.Layout;
 namespace Novolis.Documents.Skia;
 
 /// <summary>
-/// Appends a PDF outline tree for the contents page and level-1 headings.
+/// Appends a PDF outline tree for level-1 headings.
 /// SkiaSharp does not write <c>/Outlines</c>, so this is an incremental update the Novolis PDF parser follows via <c>/Prev</c>.
 /// </summary>
 static class PdfOutlineWriter
@@ -19,53 +19,77 @@ static class PdfOutlineWriter
     static readonly Regex TypePage = new(@"/Type\s*/Page\b", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     static readonly Regex TypePages = new(@"/Type\s*/Pages\b", RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    public static byte[] Append(byte[] pdf, PagePlan plan)
+    public static byte[] Append(byte[] pdf, PdfDocument document)
     {
         ArgumentNullException.ThrowIfNull(pdf);
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(document);
 
-        var marks = Collect(plan);
-        if (marks.Count == 0)
+        var nodes = Flatten(document.Outlines);
+        if (nodes.Count == 0)
             return pdf;
 
         if (!TryReadStructure(pdf, out var structure))
             throw new InvalidOperationException("PDF outline bookmarks could not be written.");
 
-        foreach (var mark in marks)
+        foreach (var node in nodes)
         {
-            if (mark.PageIndex < 0 || mark.PageIndex >= structure.Pages.Count)
+            if (node.PageIndex < 0 || node.PageIndex >= structure.Pages.Count)
                 throw new InvalidOperationException("PDF outline bookmarks could not be written.");
         }
 
-        return WriteUpdate(pdf, structure, marks);
+        return WriteUpdate(pdf, structure, nodes);
     }
 
-    static List<(string Title, int PageIndex)> Collect(PagePlan plan)
+    static List<OutlineNode> Flatten(IReadOnlyList<PdfOutlineEntry> entries)
     {
-        var marks = new List<(string Title, int PageIndex)>();
-        foreach (var page in plan.Pages)
-        {
-            if (page.Kind != PageKind.Toc)
-                continue;
-            marks.Add(("Contents", page.Number - 1));
-            break;
-        }
+        var nodes = new List<OutlineNode>();
+        Collect(entries, parentIndex: -1, nodes);
+        return nodes;
+    }
 
-        foreach (var entry in plan.TocEntries)
+    static void Collect(IReadOnlyList<PdfOutlineEntry> entries, int parentIndex, List<OutlineNode> nodes)
+    {
+        var siblingIndexes = new List<int>();
+        foreach (var entry in entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Title) || entry.PageNumber < 1)
                 continue;
-            marks.Add((entry.Title.Trim(), entry.PageNumber - 1));
+            var index = nodes.Count;
+            siblingIndexes.Add(index);
+            nodes.Add(new OutlineNode
+            {
+                Title = entry.Title.Trim(),
+                PageIndex = entry.PageNumber - 1,
+                ParentIndex = parentIndex,
+            });
+            var children = entry.Children;
+            if (children is { Count: > 0 })
+                Collect(children, index, nodes);
         }
 
-        return marks;
+        for (var i = 0; i < siblingIndexes.Count; i++)
+        {
+            var node = nodes[siblingIndexes[i]];
+            node.PrevIndex = i > 0 ? siblingIndexes[i - 1] : -1;
+            node.NextIndex = i + 1 < siblingIndexes.Count ? siblingIndexes[i + 1] : -1;
+            nodes[siblingIndexes[i]] = node;
+        }
+
+        if (parentIndex >= 0 && siblingIndexes.Count > 0)
+        {
+            var parent = nodes[parentIndex];
+            parent.FirstChildIndex = siblingIndexes[0];
+            parent.LastChildIndex = siblingIndexes[^1];
+            parent.ChildCount = siblingIndexes.Count;
+            nodes[parentIndex] = parent;
+        }
     }
 
-    static byte[] WriteUpdate(byte[] pdf, PdfStructure structure, List<(string Title, int PageIndex)> marks)
+    static byte[] WriteUpdate(byte[] pdf, PdfStructure structure, List<OutlineNode> nodes)
     {
         var next = structure.Size;
-        var itemIds = new int[marks.Count];
-        for (var i = 0; i < marks.Count; i++)
+        var itemIds = new int[nodes.Count];
+        for (var i = 0; i < nodes.Count; i++)
             itemIds[i] = next++;
         var outlineId = next++;
         var catalogId = next++;
@@ -89,29 +113,45 @@ static class PdfOutlineWriter
             appended.Append("endobj\n");
         }
 
-        for (var i = 0; i < marks.Count; i++)
+        int ObjectId(int index) => index < 0 ? outlineId : itemIds[index];
+
+        for (var i = 0; i < nodes.Count; i++)
         {
-            var page = structure.Pages[marks[i].PageIndex];
+            var node = nodes[i];
+            var page = structure.Pages[node.PageIndex];
             var height = page.Height.ToString("0.###", CultureInfo.InvariantCulture);
             var body = new StringBuilder();
-            body.Append("<< /Title ").Append(Utf16Hex(marks[i].Title)).Append('\n');
-            body.Append("/Parent ").Append(outlineId).Append(" 0 R\n");
-            if (i > 0)
-                body.Append("/Prev ").Append(itemIds[i - 1]).Append(" 0 R\n");
-            if (i + 1 < marks.Count)
-                body.Append("/Next ").Append(itemIds[i + 1]).Append(" 0 R\n");
+            body.Append("<< /Title ").Append(Utf16Hex(node.Title)).Append('\n');
+            body.Append("/Parent ").Append(ObjectId(node.ParentIndex)).Append(" 0 R\n");
+            if (node.PrevIndex >= 0)
+                body.Append("/Prev ").Append(itemIds[node.PrevIndex]).Append(" 0 R\n");
+            if (node.NextIndex >= 0)
+                body.Append("/Next ").Append(itemIds[node.NextIndex]).Append(" 0 R\n");
+            if (node.FirstChildIndex >= 0)
+                body.Append("/First ").Append(itemIds[node.FirstChildIndex]).Append(" 0 R\n");
+            if (node.LastChildIndex >= 0)
+                body.Append("/Last ").Append(itemIds[node.LastChildIndex]).Append(" 0 R\n");
+            if (node.ChildCount > 0)
+                body.Append("/Count ").Append(node.ChildCount.ToString(CultureInfo.InvariantCulture)).Append('\n');
             body.Append("/Dest [").Append(page.ObjectNumber).Append(" 0 R /XYZ 0 ").Append(height).Append(" null]\n>>");
             AddObject(itemIds[i], body.ToString());
+        }
+
+        var roots = new List<int>();
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i].ParentIndex < 0)
+                roots.Add(i);
         }
 
         AddObject(
             outlineId,
             "<< /Type /Outlines\n/First "
-            + itemIds[0].ToString(CultureInfo.InvariantCulture)
+            + itemIds[roots[0]].ToString(CultureInfo.InvariantCulture)
             + " 0 R\n/Last "
-            + itemIds[^1].ToString(CultureInfo.InvariantCulture)
+            + itemIds[roots[^1]].ToString(CultureInfo.InvariantCulture)
             + " 0 R\n/Count "
-            + marks.Count.ToString(CultureInfo.InvariantCulture)
+            + roots.Count.ToString(CultureInfo.InvariantCulture)
             + " >>");
 
         var catalog = structure.CatalogDictionary.TrimEnd();
@@ -392,4 +432,16 @@ static class PdfOutlineWriter
         int StartXref,
         string CatalogDictionary,
         List<PdfPageRef> Pages);
+
+    sealed class OutlineNode
+    {
+        public required string Title { get; init; }
+        public required int PageIndex { get; init; }
+        public int ParentIndex { get; init; } = -1;
+        public int PrevIndex { get; set; } = -1;
+        public int NextIndex { get; set; } = -1;
+        public int FirstChildIndex { get; set; } = -1;
+        public int LastChildIndex { get; set; } = -1;
+        public int ChildCount { get; set; }
+    }
 }

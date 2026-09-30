@@ -1,5 +1,6 @@
 using System.Text;
 using Novolis.Documents;
+using Novolis.Documents.Layout;
 using Novolis.Documents.Skia;
 using TUnit.Core;
 
@@ -47,10 +48,18 @@ public sealed class SkiaPdfTests
         var pdf = Encoding.Latin1.GetString(bytes);
         await Assert.That(pdf).Contains("/Type /Outlines");
         await Assert.That(pdf).Contains("/Prev");
-        await Assert.That(pdf).Contains(Utf16Title("Contents"));
         await Assert.That(pdf).Contains(Utf16Title("Section One"));
         await Assert.That(pdf).Contains(Utf16Title("Section Two"));
+        await Assert.That(pdf).DoesNotContain(Utf16Title("Contents"));
         await Assert.That(pdf).Contains("/Dest [");
+
+        var laidOut = DocumentPdf.Layout(document);
+        await Assert.That(laidOut.Pages.Any(p => p.Kind == PageKind.Toc)).IsFalse();
+        var model = Novolis.Documents.Layout.PdfDocument.From(document.Meta, laidOut);
+        await Assert.That(model.Outlines.Count).IsEqualTo(2);
+        await Assert.That(model.Outlines[0].Title).IsEqualTo("Section One");
+        await Assert.That(model.Outlines[1].Title).IsEqualTo("Section Two");
+        await Assert.That(model.Outlines[1].PageNumber).IsGreaterThan(model.Outlines[0].PageNumber);
 
         var outDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),

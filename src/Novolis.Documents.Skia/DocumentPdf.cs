@@ -34,6 +34,9 @@ public static class DocumentPdf
         var measurer = new SkiaTextMeasurer(
             typeface, boldTypeface, monoTypeface, document.Typography.CodeFontFamily);
         var plan = DocumentPaginator.Paginate(document, measurer);
+        var pdfDocument = options.Outlines is { Count: > 0 } custom
+            ? PdfDocument.From(document.Meta, plan, custom)
+            : PdfDocument.From(document.Meta, plan);
 
         using var stream = new MemoryStream();
         using (var pdf = SKDocument.CreatePdf(stream))
@@ -42,8 +45,8 @@ public static class DocumentPdf
             var width = document.Setup.Trim.Width.Points;
             var height = document.Setup.Trim.Height.Points;
 
-            var pageCount = plan.Pages.Count;
-            foreach (var page in plan.Pages)
+            var pageCount = pdfDocument.Plan.Pages.Count;
+            foreach (var page in pdfDocument.Plan.Pages)
             {
                 using var canvas = pdf.BeginPage(width, height);
                 DrawPage(canvas, document, page, pageCount, typeface, boldTypeface, monoTypeface, measurer);
@@ -53,7 +56,7 @@ public static class DocumentPdf
             pdf.Close();
         }
 
-        return PdfOutlineWriter.Append(stream.ToArray(), plan);
+        return PdfOutlineWriter.Append(stream.ToArray(), pdfDocument);
     }
 
     /// <summary>Paginates with the same measurer used for PDF output.</summary>
