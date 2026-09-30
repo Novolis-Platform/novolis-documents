@@ -13,25 +13,21 @@ public static class DocumentPaginator
         ArgumentNullException.ThrowIfNull(measurer);
 
         var pages = new List<PageSlice>();
-        var level1PageNumbers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var level1 = new List<TocEntry>();
 
         if (document.HasFirstPage)
             pages.AddRange(BuildFirstPages(document, measurer, startNumber: 1));
 
         var bodyStartNumber = pages.Count + 1;
-        var bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1PageNumbers);
+        var bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1);
 
         List<TocEntry> tocEntries = [];
         if (document.IncludeToc)
         {
-            tocEntries = level1PageNumbers
-                .Select(kv => new TocEntry(kv.Key, kv.Value))
-                .OrderBy(e => e.PageNumber)
-                .ThenBy(e => e.Title, StringComparer.Ordinal)
-                .ToList();
+            tocEntries = [.. level1];
 
             pages.Clear();
-            level1PageNumbers.Clear();
+            level1.Clear();
 
             if (document.HasFirstPage)
                 pages.AddRange(BuildFirstPages(document, measurer, startNumber: 1));
@@ -39,24 +35,16 @@ public static class DocumentPaginator
             var tocPageCount = EstimateTocPageCount(document, measurer, tocEntries);
             var tocStart = pages.Count + 1;
             bodyStartNumber = tocStart + tocPageCount;
-            bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1PageNumbers);
-            tocEntries = level1PageNumbers
-                .Select(kv => new TocEntry(kv.Key, kv.Value))
-                .OrderBy(e => e.PageNumber)
-                .ThenBy(e => e.Title, StringComparer.Ordinal)
-                .ToList();
+            bodyPages = PaginateBody(document, measurer, bodyStartNumber, level1);
+            tocEntries = [.. level1];
 
             pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
             var actualBodyStart = pages.Count + 1;
             if (actualBodyStart != bodyStartNumber)
             {
-                level1PageNumbers.Clear();
-                bodyPages = PaginateBody(document, measurer, actualBodyStart, level1PageNumbers);
-                tocEntries = level1PageNumbers
-                    .Select(kv => new TocEntry(kv.Key, kv.Value))
-                    .OrderBy(e => e.PageNumber)
-                    .ThenBy(e => e.Title, StringComparer.Ordinal)
-                    .ToList();
+                level1.Clear();
+                bodyPages = PaginateBody(document, measurer, actualBodyStart, level1);
+                tocEntries = [.. level1];
                 pages.RemoveAll(p => p.Kind == PageKind.Toc);
                 pages.AddRange(BuildTocPages(document, measurer, tocEntries, tocStart));
             }
@@ -332,7 +320,7 @@ public static class DocumentPaginator
         PagedDocument document,
         ITextMeasurer measurer,
         int startNumber,
-        Dictionary<string, int> level1PageNumbers)
+        List<TocEntry> level1)
     {
         var pages = new List<PageSlice>();
         var contentHeight = ContentHeight(document);
@@ -397,7 +385,8 @@ public static class DocumentPaginator
                     if (blocks.Count > 0)
                         Flush();
                     chapterTitle = h1.Text;
-                    level1PageNumbers[h1.Text] = pageNumber;
+                    if (!string.IsNullOrWhiteSpace(h1.Text))
+                        level1.Add(new TocEntry(h1.Text.Trim(), pageNumber));
                     {
                         var style = HeadingStyle(typography, 1);
                         var h = measurer.MeasureHeight(h1.Text, width, style);

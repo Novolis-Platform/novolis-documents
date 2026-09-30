@@ -1,3 +1,4 @@
+using System.Text;
 using Novolis.Documents;
 using Novolis.Documents.Skia;
 using TUnit.Core;
@@ -42,6 +43,20 @@ public sealed class SkiaPdfTests
         await Assert.That(bytes.Length).IsLessThan(80_000);
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
         await Assert.That(bytes[1]).IsEqualTo((byte)'P');
+
+        var pdf = Encoding.Latin1.GetString(bytes);
+        await Assert.That(pdf).Contains("/Type /Outlines");
+        await Assert.That(pdf).Contains("/Prev");
+        await Assert.That(pdf).Contains(Utf16Title("Contents"));
+        await Assert.That(pdf).Contains(Utf16Title("Section One"));
+        await Assert.That(pdf).Contains(Utf16Title("Section Two"));
+        await Assert.That(pdf).Contains("/Dest [");
+
+        var outDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".novolis", "artifacts", "toc-outline");
+        Directory.CreateDirectory(outDir);
+        await File.WriteAllBytesAsync(Path.Combine(outDir, "sample.pdf"), bytes);
     }
 
     [Test]
@@ -148,5 +163,17 @@ public sealed class SkiaPdfTests
         var bytes = DocumentPdf.ToBytes(document);
         await Assert.That(bytes.Length).IsGreaterThan(400);
         await Assert.That(bytes[0]).IsEqualTo((byte)'%');
+        await Assert.That(Encoding.Latin1.GetString(bytes)).DoesNotContain("/Outlines");
+    }
+
+    static string Utf16Title(string text)
+    {
+        var encoded = Encoding.BigEndianUnicode.GetBytes(text);
+        var hex = new StringBuilder(encoded.Length * 2 + 6);
+        hex.Append("<FEFF");
+        foreach (var b in encoded)
+            hex.Append(b.ToString("X2"));
+        hex.Append('>');
+        return hex.ToString();
     }
 }

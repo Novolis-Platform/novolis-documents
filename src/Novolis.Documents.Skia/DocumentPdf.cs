@@ -53,7 +53,7 @@ public static class DocumentPdf
             pdf.Close();
         }
 
-        return stream.ToArray();
+        return PdfOutlineWriter.Append(stream.ToArray(), plan);
     }
 
     /// <summary>Paginates with the same measurer used for PDF output.</summary>

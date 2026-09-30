@@ -140,6 +140,47 @@ public sealed class LayoutTests
     }
 
     [Test]
+    public async Task Paginate_toc_keeps_duplicate_level1_titles_in_order()
+    {
+        var doc = new PagedDocument
+        {
+            Meta = new DocumentMeta { Title = "Contents" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            IncludeCover = true,
+            IncludeToc = true,
+            Body =
+            [
+                new HeadingBlock { Level = 1, Text = "Same" },
+                new ParagraphBlock { Text = "First." },
+                new HeadingBlock { Level = 1, Text = "Same" },
+                new ParagraphBlock { Text = "Second." },
+                new HeadingBlock { Level = 1, Text = "Other" },
+                new ParagraphBlock { Text = "Third." },
+            ],
+        };
+
+        var plan = DocumentPaginator.Paginate(doc, new FakeTextMeasurer());
+        await Assert.That(plan.TocEntries.Count).IsEqualTo(3);
+        await Assert.That(plan.TocEntries[0].Title).IsEqualTo("Same");
+        await Assert.That(plan.TocEntries[1].Title).IsEqualTo("Same");
+        await Assert.That(plan.TocEntries[2].Title).IsEqualTo("Other");
+        await Assert.That(plan.TocEntries[0].PageNumber).IsLessThan(plan.TocEntries[1].PageNumber);
+        await Assert.That(plan.TocEntries[1].PageNumber).IsLessThan(plan.TocEntries[2].PageNumber);
+
+        var toc = plan.Pages.First(p => p.Kind == PageKind.Toc);
+        var lines = toc.Blocks.Select(b => b.Block).OfType<ParagraphBlock>().Select(p => p.Text).ToArray();
+        await Assert.That(lines.Length).IsEqualTo(3);
+        await Assert.That(lines[0]).Contains("Same");
+        await Assert.That(lines[0]).Contains(plan.TocEntries[0].PageNumber.ToString());
+        await Assert.That(lines[2]).Contains("Other");
+    }
+
+    [Test]
     public async Task Paginate_h1_starts_new_page_when_prior_content()
     {
         var plan = DocumentPaginator.Paginate(SampleDocument(toc: false), new FakeTextMeasurer());
