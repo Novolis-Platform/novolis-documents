@@ -5,7 +5,7 @@ using TUnit.Core;
 namespace Novolis.Documents.Unit;
 
 /// <summary>Deterministic measurer: ~0.5em width per char, line height from style.</summary>
-file sealed class FakeTextMeasurer : ITextMeasurer
+sealed class FakeTextMeasurer : ITextMeasurer
 {
     public float MeasureHeight(string text, float widthPt, TextStyle style)
     {
