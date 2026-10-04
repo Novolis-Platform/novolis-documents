@@ -366,7 +366,7 @@ public static class DocumentPdf
         if (bitmap is null)
             return;
         var dest = new SKRect(x, y, x + width, y + height);
-        canvas.DrawBitmap(bitmap, dest);
+        canvas.DrawBitmap(bitmap, dest, new SKSamplingOptions(SKFilterMode.Linear));
     }
 
     static bool LooksLikeSvg(byte[] bytes, string? path)
