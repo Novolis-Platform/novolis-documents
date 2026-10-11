@@ -19,6 +19,10 @@ internal static class UblInvoiceDocumentMapper
             ?? invoice.LegalMonetaryTotal.PayableAmount.currencyID
             ?? "EUR";
         var invoiceId = invoice.ID.Value;
+        var isCreditNote = string.Equals(
+            invoice.InvoiceTypeCode?.Value,
+            "381",
+            StringComparison.OrdinalIgnoreCase);
         var supplierName = PartyName(invoice.AccountingSupplierParty.Party) ?? "Supplier";
         var customerName = PartyName(invoice.AccountingCustomerParty.Party) ?? "Customer";
         var sections = new List<ISection>();
@@ -26,7 +30,7 @@ internal static class UblInvoiceDocumentMapper
 
         var titleContents = new List<IContent>
         {
-            new Heading("INVOICE", 2),
+            new Heading(isCreditNote ? "CREDIT NOTE" : "INVOICE", 2),
             new Text(supplierName),
         };
         var metadataContents = new List<IContent>
@@ -60,6 +64,20 @@ internal static class UblInvoiceDocumentMapper
             ],
             20f));
 
+        if (invoice.PayeeParty is { } payee)
+            sections.Add(new Section(
+                [
+                    new Heading("Payee", 3),
+                    new Text(FormatParty(payee)),
+                ]));
+
+        if (invoice.TaxRepresentativeParty is { } taxRepresentative)
+            sections.Add(new Section(
+                [
+                    new Heading("Tax representative", 3),
+                    new Text(FormatParty(taxRepresentative)),
+                ]));
+
         var references = new List<IContent>();
         if (invoice.OrderReference?.ID is { Value: { Length: > 0 } orderId })
             references.Add(new KeyValue("Order", orderId));
@@ -74,6 +92,9 @@ internal static class UblInvoiceDocumentMapper
         if (references.Count > 0)
             sections.Add(new Section(references));
 
+        AddReferenceSections(sections, invoice);
+        AddDeliverySection(sections, invoice);
+
         foreach (var note in invoice.Note ?? [])
         {
             if (!string.IsNullOrWhiteSpace(note.Value))
@@ -81,6 +102,8 @@ internal static class UblInvoiceDocumentMapper
         }
 
         sections.Add(BuildLineTable(invoice, currency));
+        AddAdjustmentSection(sections, invoice, currency);
+        AddTaxSection(sections, invoice, currency);
 
         var paymentContents = new List<IContent>
         {
@@ -93,6 +116,8 @@ internal static class UblInvoiceDocumentMapper
                 new Column(BuildSummaryContents(invoice, currency), new ColumnWidth.Weight(42f)),
             ],
             22f));
+
+        AddSupportingDocumentSection(sections, invoice);
 
         return new Document
         {
@@ -145,7 +170,7 @@ internal static class UblInvoiceDocumentMapper
             var name = line.Item.Name?.Value
                 ?? line.Item.Description?.FirstOrDefault()?.Value
                 ?? "(item)";
-            var code = line.Item.SellersItemIdentification?.ID?.Value ?? string.Empty;
+            var code = ItemCodes(line);
             IContent quantity = line.InvoicedQuantity is { } q
                 ? new Number(q.Value, NumberFormat.Quantity())
                 : new Text("—");
@@ -220,6 +245,8 @@ internal static class UblInvoiceDocumentMapper
             result.Add(new KeyValue("Charges", new Number(charge.Value, NumberFormat.Currency(currency))));
         if (monetary.TaxExclusiveAmount is { } net)
             result.Add(new KeyValue("Net", new Number(net.Value, NumberFormat.Currency(currency))));
+        if (monetary.TaxInclusiveAmount is { } gross)
+            result.Add(new KeyValue("Gross", new Number(gross.Value, NumberFormat.Currency(currency))));
         foreach (var tax in invoice.TaxTotal ?? [])
         {
             foreach (var subtotal in tax.TaxSubtotal ?? [])
@@ -235,10 +262,212 @@ internal static class UblInvoiceDocumentMapper
 
         if (monetary.PrepaidAmount is { } prepaid)
             result.Add(new KeyValue("Prepaid", new Number(prepaid.Value, NumberFormat.Currency(currency))));
+        if (monetary.PayableRoundingAmount is { } rounding)
+            result.Add(new KeyValue("Rounding", new Number(rounding.Value, NumberFormat.Currency(currency))));
         result.Add(new KeyValue(
             $"Due ({currency})",
             new Number(monetary.PayableAmount.Value, NumberFormat.Currency(currency))));
         return result;
+    }
+
+    static void AddReferenceSections(List<ISection> sections, InvoiceBase invoice)
+    {
+        var references = new List<IContent>();
+        AppendDocumentReference(references, "Additional", invoice.AdditionalDocumentReference);
+        AppendDocumentReference(references, "Despatch", invoice.DespatchDocumentReference);
+        AppendDocumentReference(references, "Receipt", invoice.ReceiptDocumentReference);
+        AppendDocumentReference(references, "Statement", invoice.StatementDocumentReference);
+        AppendDocumentReference(references, "Contract", invoice.ContractDocumentReference);
+
+        foreach (var billing in invoice.BillingReference ?? [])
+        {
+            AppendDocumentReference(references, "Previous invoice", billing.InvoiceDocumentReference);
+            AppendDocumentReference(references, "Credit note", billing.CreditNoteDocumentReference);
+            AppendDocumentReference(references, "Debit note", billing.DebitNoteDocumentReference);
+        }
+
+        foreach (var project in invoice.ProjectReference ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(project.ID.Value))
+                references.Add(new KeyValue("Project", project.ID.Value));
+        }
+
+        if (references.Count > 0)
+        {
+            references.Insert(0, new Heading("References", 3));
+            sections.Add(new Section(references));
+        }
+    }
+
+    static void AppendDocumentReference(
+        List<IContent> target,
+        string label,
+        IEnumerable<DocumentReferenceBase>? references)
+    {
+        foreach (var reference in references ?? [])
+            AppendDocumentReference(target, label, reference);
+    }
+
+    static void AppendDocumentReference(
+        List<IContent> target,
+        string label,
+        DocumentReferenceBase? reference)
+    {
+        if (reference is null)
+            return;
+        if (!string.IsNullOrWhiteSpace(reference.ID.Value))
+            target.Add(new KeyValue(label, reference.ID.Value));
+        foreach (var description in reference.DocumentDescription ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(description.Value))
+                target.Add(new KeyValue($"{label} note", description.Value));
+        }
+
+        var external = reference.Attachment?.ExternalReference;
+        if (!string.IsNullOrWhiteSpace(external?.FileName?.Value))
+            target.Add(new KeyValue($"{label} file", external.FileName.Value));
+        if (!string.IsNullOrWhiteSpace(external?.URI?.Value))
+            target.Add(new KeyValue($"{label} URL", external.URI.Value));
+    }
+
+    static void AddDeliverySection(List<ISection> sections, InvoiceBase invoice)
+    {
+        var deliveries = invoice.Delivery ?? [];
+        if (deliveries.Count == 0)
+            return;
+
+        var contents = new List<IContent> { new Heading("Delivery", 3) };
+        foreach (var delivery in deliveries)
+        {
+            if (!string.IsNullOrWhiteSpace(delivery.ID?.Value))
+                contents.Add(new KeyValue("Delivery", delivery.ID.Value));
+            if (!string.IsNullOrWhiteSpace(delivery.TrackingID?.Value))
+                contents.Add(new KeyValue("Tracking", delivery.TrackingID.Value));
+            if (delivery.ActualDeliveryDate is { } actual)
+                contents.Add(new KeyValue("Delivered", FormatDate(actual)));
+            if (delivery.LatestDeliveryDate is { } latest)
+                contents.Add(new KeyValue("Latest", FormatDate(latest)));
+            if (delivery.DeliveryAddress is { } address)
+                contents.Add(new Text(FormatAddress(address)));
+        }
+
+        sections.Add(new Section(contents));
+    }
+
+    static void AddAdjustmentSection(
+        List<ISection> sections,
+        InvoiceBase invoice,
+        string currency)
+    {
+        var adjustments = invoice.AllowanceCharge ?? [];
+        if (adjustments.Count == 0)
+            return;
+
+        var rows = adjustments.Select(adjustment => new TableRow(
+            new TableCell(adjustment.ChargeIndicator ? "Charge" : "Allowance"),
+            new TableCell(
+                adjustment.AllowanceChargeReason?.FirstOrDefault()?.Value
+                ?? adjustment.AllowanceChargeReasonCode?.Value
+                ?? string.Empty),
+            new TableCell(new Number(
+                adjustment.Amount.Value,
+                NumberFormat.Currency(adjustment.Amount.currencyID ?? currency)))))
+            .ToArray();
+        sections.Add(new TableSection(
+            [
+                new TableColumn(new ColumnWidth.Weight(0.22f)),
+                new TableColumn(new ColumnWidth.Weight(0.53f)),
+                new TableColumn(new ColumnWidth.Weight(0.25f), HorizontalAlignment.Right),
+            ],
+            rows,
+            new TableOptions
+            {
+                Header = new TableRow("Type", "Reason", $"Amount ({currency})"),
+                ShowHeader = true,
+                RepeatHeader = true,
+                HeaderBackground = true,
+                RuleStyle = TableRuleStyle.Horizontal,
+            }));
+    }
+
+    static void AddTaxSection(
+        List<ISection> sections,
+        InvoiceBase invoice,
+        string currency)
+    {
+        var rows = new List<TableRow>();
+        foreach (var taxTotal in invoice.TaxTotal ?? [])
+        {
+            foreach (var subtotal in taxTotal.TaxSubtotal ?? [])
+            {
+                var category = subtotal.TaxCategory?.Name?.Value
+                    ?? subtotal.TaxCategory?.ID?.Value
+                    ?? "VAT";
+                var rate = subtotal.Percent?.Value is { } percent
+                    ? new Number(percent, NumberFormat.Percentage(2))
+                    : (IContent)new Text("—");
+                var taxable = subtotal.TaxableAmount is { } taxableAmount
+                    ? (IContent)new Number(
+                        taxableAmount.Value,
+                        NumberFormat.Currency(taxableAmount.currencyID ?? currency))
+                    : new Text("—");
+                rows.Add(new TableRow(
+                    new TableCell(category),
+                    new TableCell(taxable),
+                    new TableCell(rate),
+                    new TableCell(new Number(
+                        subtotal.TaxAmount.Value,
+                        NumberFormat.Currency(subtotal.TaxAmount.currencyID ?? currency)))));
+            }
+
+            if ((taxTotal.TaxSubtotal is null || taxTotal.TaxSubtotal.Count == 0)
+                && taxTotal.TaxAmount is { } total)
+            {
+                rows.Add(new TableRow(
+                    new TableCell("Tax total"),
+                    new TableCell(string.Empty),
+                    new TableCell(string.Empty),
+                    new TableCell(new Number(
+                        total.Value,
+                        NumberFormat.Currency(total.currencyID ?? currency)))));
+            }
+        }
+
+        if (rows.Count == 0)
+            return;
+
+        sections.Add(new TableSection(
+            [
+                new TableColumn(new ColumnWidth.Weight(0.28f)),
+                new TableColumn(new ColumnWidth.Weight(0.28f), HorizontalAlignment.Right),
+                new TableColumn(new ColumnWidth.Weight(0.18f), HorizontalAlignment.Right),
+                new TableColumn(new ColumnWidth.Weight(0.26f), HorizontalAlignment.Right),
+            ],
+            rows,
+            new TableOptions
+            {
+                Header = new TableRow("Category", "Taxable", "Rate", $"Tax ({currency})"),
+                ShowHeader = true,
+                RepeatHeader = true,
+                HeaderBackground = true,
+                RuleStyle = TableRuleStyle.Horizontal,
+            }));
+    }
+
+    static void AddSupportingDocumentSection(List<ISection> sections, InvoiceBase invoice)
+    {
+        var references = invoice.AdditionalDocumentReference ?? [];
+        if (references.Count == 0)
+            return;
+
+        var contents = new List<IContent> { new Heading("Supporting documents", 3) };
+        foreach (var reference in references)
+        {
+            AppendDocumentReference(contents, "Document", reference);
+        }
+
+        if (contents.Count > 1)
+            sections.Add(new Section(contents));
     }
 
     static string ResolveLogoPath(string? logoPath)
