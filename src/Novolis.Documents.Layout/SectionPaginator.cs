@@ -70,7 +70,8 @@ public static class SectionPaginator
         List<TocEntry> outline)
     {
         var pending = new Queue<ISection>(sourceSections);
-        var page = CreatePage(kind, pages.Count + 1);
+        string? chapterTitle = null;
+        var page = CreatePage(kind, pages.Count + 1, chapterTitle);
         pages.Add(page);
         var y = 0f;
 
@@ -81,7 +82,7 @@ public static class SectionPaginator
             {
                 if (page.Fragments.Count > 0 || page.Blocks.Count > 0)
                 {
-                    page = CreatePage(kind, pages.Count + 1);
+                    page = CreatePage(kind, pages.Count + 1, chapterTitle);
                     pages.Add(page);
                 }
 
@@ -101,7 +102,7 @@ public static class SectionPaginator
                     y,
                     measurer))
             {
-                page = CreatePage(kind, pages.Count + 1);
+                page = CreatePage(kind, pages.Count + 1, chapterTitle);
                 pages.Add(page);
                 y = 0f;
             }
@@ -123,14 +124,16 @@ public static class SectionPaginator
                 {
                     case SectionLayoutResult.Fits fits:
                         Place(page, fits.Fragment, y, outline);
+                        chapterTitle = page.ChapterTitle ?? chapterTitle;
                         y += fits.Fragment.HeightPt;
                         y += SpaceAfter(section);
                         break;
 
                     case SectionLayoutResult.Split split:
                         Place(page, split.Head, y, outline);
+                        chapterTitle = page.ChapterTitle ?? chapterTitle;
                         y += split.Head.HeightPt;
-                        page = CreatePage(kind, pages.Count + 1);
+                        page = CreatePage(kind, pages.Count + 1, chapterTitle);
                         pages.Add(page);
                         y = 0f;
                         section = split.Tail;
@@ -148,7 +151,7 @@ public static class SectionPaginator
                                 pageHeight);
                         }
 
-                        page = CreatePage(kind, pages.Count + 1);
+                        page = CreatePage(kind, pages.Count + 1, chapterTitle);
                         pages.Add(page);
                         y = 0f;
                         continuation = false;
@@ -417,7 +420,11 @@ public static class SectionPaginator
                 availableHeight));
         }
 
-        var header = table.Options.ShowHeader ? table.Options.Header : null;
+        var sourceHeader = table.Options.ShowHeader ? table.Options.Header : null;
+        var header = sourceHeader is not null
+            && (!continuation || table.Options.RepeatHeader)
+            ? sourceHeader
+            : null;
         var headerHeight = header is null
             ? 0f
             : MeasureRow(document, header, columnWidths, table.Options.CellPaddingPt, measurer);
@@ -1002,7 +1009,7 @@ public static class SectionPaginator
         _ => footer.IncludeBody,
     };
 
-    static PageSlice CreatePage(PageKind kind, int number) => new()
+    static PageSlice CreatePage(PageKind kind, int number, string? chapterTitle = null) => new()
     {
         Kind = kind,
         Number = number,
@@ -1022,5 +1029,6 @@ public static class SectionPaginator
         },
         Fragments = [],
         Blocks = [],
+        ChapterTitle = chapterTitle,
     };
 }
