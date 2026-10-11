@@ -177,7 +177,9 @@ internal static class UblInvoiceDocumentMapper
             var unitPrice = line.Price?.PriceAmount is { } price
                 ? (IContent)new Number(price.Value, NumberFormat.Currency(currency))
                 : new Text("—");
-            var vatPercent = LineVatPercent(line);
+            IContent vatPercent = line.Item.ClassifiedTaxCategory?.FirstOrDefault()?.Percent?.Value is { } percent
+                ? new Number(percent, NumberFormat.Percentage(2))
+                : new Text("—");
             var vatAmount = line.TaxTotal?.FirstOrDefault()?.TaxAmount is { } tax
                 ? (IContent)new Number(tax.Value, NumberFormat.Currency(currency))
                 : new Text("—");
@@ -527,35 +529,59 @@ internal static class UblInvoiceDocumentMapper
         party?.PartyName?.FirstOrDefault()?.Name?.Value
         ?? party?.PartyLegalEntity?.FirstOrDefault()?.RegistrationName?.Value;
 
+    static string ItemCodes(InvoiceLineBase line)
+    {
+        var codes = new[]
+        {
+            line.Item.SellersItemIdentification?.ID?.Value,
+            line.Item.BuyersItemIdentification?.ID?.Value,
+            line.Item.StandardItemIdentification?.ID?.Value,
+        };
+        return string.Join(
+            " · ",
+            codes.Where(static code => !string.IsNullOrWhiteSpace(code)));
+    }
+
     static string FormatParty(PartyBase? party)
     {
         if (party is null)
             return "—";
         var result = new StringBuilder();
         Append(result, PartyName(party));
+        Append(result, party.EndpointID?.Value);
+        foreach (var identification in party.PartyIdentification ?? [])
+            Append(result, identification.ID.Value);
         if (party.PostalAddress is { } address)
-        {
-            Append(result, JoinNonEmpty(" ", address.StreetName?.Value, address.BuildingNumber?.Value));
-            Append(result, address.AdditionalStreetName?.Value);
-            Append(result, JoinNonEmpty(" ", address.PostalZone?.Value, address.CityName?.Value));
-            Append(result, address.Country?.IdentificationCode?.Value);
-        }
+            Append(result, FormatAddress(address));
 
         foreach (var tax in party.PartyTaxScheme ?? [])
             Append(result, tax.CompanyID?.Value is { Length: > 0 } vat ? $"Tax ID: {vat}" : null);
+        Append(result, party.Contact?.Name?.Value);
+        Append(result, party.Contact?.Telephone?.Value);
         Append(result, party.Contact?.ElectronicMail?.Value);
         return result.Length == 0 ? "—" : result.ToString().TrimEnd();
     }
 
-    static string LineVatPercent(InvoiceLineBase line) =>
-        line.Item.ClassifiedTaxCategory?.FirstOrDefault()?.Percent?.Value is { } percent
-            ? percent.ToString("0.##", Nb)
-            : "—";
+    static string FormatAddress(AddressBase address)
+    {
+        var lines = new List<string>();
+        Append(lines, JoinNonEmpty(" ", address.StreetName?.Value, address.BuildingNumber?.Value));
+        Append(lines, address.AdditionalStreetName?.Value);
+        Append(lines, JoinNonEmpty(" ", address.PostalZone?.Value, address.CityName?.Value));
+        Append(lines, address.Country?.Name?.Value ?? address.Country?.IdentificationCode?.Value);
+        return lines.Count == 0 ? "—" : string.Join(Environment.NewLine, lines);
+    }
 
     static void Append(StringBuilder builder, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
             builder.AppendLine(value.Trim());
+    }
+
+    static void Append(List<string> lines, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            lines.Add(value.Trim());
     }
 
     static string? JoinNonEmpty(string separator, params string?[] parts)

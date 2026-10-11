@@ -26,7 +26,9 @@ public sealed class UblInvoicePdfTests
                 c.Columns.Any(column => column.Contents.OfType<Heading>().Any(h => h.Value == "Payment"))))
             .IsTrue();
 
-        var lineTable = doc.Sections.OfType<TableSection>().Single();
+        var lineTable = doc.Sections
+            .OfType<TableSection>()
+            .Single(table => table.Columns.Count >= 8);
         await Assert.That(lineTable.Columns.Count).IsGreaterThanOrEqualTo(8);
         await Assert.That(lineTable.Options.RuleStyle).IsEqualTo(TableRuleStyle.Horizontal);
         await Assert.That(lineTable.Rows.Count).IsEqualTo(lean.InvoiceLine.Count);
@@ -62,6 +64,63 @@ public sealed class UblInvoicePdfTests
         Console.WriteLine(path);
         Console.WriteLine($"Bytes: {bytes.Length}; pages: {plan.Pages.Count}");
     }
+
+    [Test]
+    public async Task Peppol_shaped_large_invoice_preserves_all_line_rows()
+    {
+        var source = UblInvoiceDocumentMapper.FromLean(LoadOasisSample());
+        var sourceTable = source.Sections
+            .OfType<TableSection>()
+            .Single(table => table.Columns.Count >= 8);
+        var rows = Enumerable.Range(0, 300)
+            .Select(index => sourceTable.Rows[index % sourceTable.Rows.Count])
+            .ToArray();
+        var largeTable = new TableSection(
+            sourceTable.Columns,
+            rows,
+            sourceTable.Options,
+            sourceTable.Layout);
+        var sections = source.Sections
+            .Select(section => ReferenceEquals(section, sourceTable)
+                ? (ISection)largeTable
+                : section)
+            .ToArray();
+        var large = CopyWithSections(source, sections);
+
+        var plan = DocumentPdf.Layout(large);
+        var fragments = plan.Pages
+            .SelectMany(static page => page.Fragments)
+            .Select(static placed => placed.Fragment)
+            .OfType<TableFragment>()
+            .Where(fragment => ReferenceEquals(fragment.Table, largeTable))
+            .ToArray();
+
+        await Assert.That(fragments.Length).IsGreaterThan(1);
+        await Assert.That(fragments.SelectMany(static fragment => fragment.Rows).Count)
+            .IsEqualTo(300);
+        await Assert.That(fragments.Skip(1).All(static fragment => fragment.HasRepeatedHeader))
+            .IsTrue();
+
+        var bytes = DocumentPdf.ToBytes(large);
+        await Assert.That(bytes.Length).IsGreaterThan(2000);
+        await Assert.That(bytes[0]).IsEqualTo((byte)'%');
+        await Assert.That(bytes[1]).IsEqualTo((byte)'P');
+    }
+
+    static Document CopyWithSections(Document source, IReadOnlyList<ISection> sections) => new()
+    {
+        Meta = source.Meta,
+        Setup = source.Setup,
+        Typography = source.Typography,
+        Sections = sections,
+        FirstPage = source.FirstPage,
+        LastPage = source.LastPage,
+        Header = source.Header,
+        Footer = source.Footer,
+        Watermark = source.Watermark,
+        Theme = source.Theme,
+        IncludeToc = source.IncludeToc,
+    };
 
     static InvoiceBase LoadOasisSample()
     {
