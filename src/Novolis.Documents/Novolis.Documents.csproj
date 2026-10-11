@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Documents</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Paged document model: page setup, typography, header/footer, watermark, and closed content blocks.</Description>
+    <Description>Semantic vertical section document model with content, columns, tables, page chrome, and immutable authoring builders.</Description>
     <RootNamespace>Novolis.Documents</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

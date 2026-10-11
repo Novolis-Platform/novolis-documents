@@ -11,15 +11,18 @@ public sealed class PageSlice
     /// <summary>1-based page number in the finished document.</summary>
     public required int Number { get; init; }
 
-    /// <summary>Blocks drawn in the content area.</summary>
-    public required IReadOnlyList<PlacedBlock> Blocks { get; init; }
+    /// <summary>Semantic fragments drawn in the content area.</summary>
+    public IReadOnlyList<PlacedFragment> Fragments { get; set; } = [];
+
+    /// <summary>Legacy blocks drawn in the content area.</summary>
+    public IReadOnlyList<PlacedBlock> Blocks { get; set; } = [];
 
     /// <summary>Whether to draw the page header.</summary>
-    public bool ShowHeader { get; init; }
+    public bool ShowHeader { get; set; }
 
     /// <summary>Whether to draw the page footer.</summary>
-    public bool ShowFooter { get; init; }
+    public bool ShowFooter { get; set; }
 
     /// <summary>Current chapter title for chapter-style headers (null when none).</summary>
-    public string? ChapterTitle { get; init; }
+    public string? ChapterTitle { get; set; }
 }

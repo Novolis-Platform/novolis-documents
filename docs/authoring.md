@@ -1,8 +1,37 @@
 # Authoring DSL
 
-Entry point: `Document.Create` / `Document.Create(string title)` → `DocumentBuilder` → `Build()` → `PagedDocument`.
+Entry point: `Document.Create` / `Document.Create(string title)` → `DocumentBuilder` → `Build()` → immutable `Document`.
 
-This is a **fluent construction** API over the immutable block model. It is not a constraint layout engine.
+The public model is a vertical sequence of semantic sections. A section owns its local content, columns, or table behavior; the document root never becomes an arbitrary row/column tree.
+
+## Section authoring
+
+```csharp
+var document = Document.Create("Invoice")
+    .Page(page => page.A4().Footer("{page} / {pages}"))
+    .FirstPage(page => page
+        .Section(section => section
+            .Heading("Invoice", 1)
+            .Text("ACME AS")))
+    .Section(section => section
+        .Columns(columns => columns
+            .Column(ColumnWidth.WeightBy(1), left => left
+                .Heading("Supplier", 2)
+                .Text("ACME AS"))
+            .Column(ColumnWidth.WeightBy(1), right => right
+                .Heading("Customer", 2)
+                .Text("Harbor Stores"))))
+    .Table(table => table
+        .Columns(
+            new TableColumn(new ColumnWidth.Weight(3)),
+            new TableColumn(new ColumnWidth.Weight(1), HorizontalAlignment.Right))
+        .Header("Description", "Amount")
+        .Row("Freight", "120.00"))
+    .LastPage(page => page.Section(section => section.Text("Payment terms")))
+    .Build();
+```
+
+`TableSection` owns row measurement and page splitting. Table rows remain whole and headers repeat on continuation fragments.
 
 ## Skeleton
 
@@ -28,8 +57,10 @@ var document = Document.Create("Sample")
 | `Page` | Trim, margins, header, footer (`DocumentPageBuilder`) |
 | `Typography` | Font sizes / spacing (`TypographyBuilder`) |
 | `Watermark` / `NoWatermark` | Diagonal text mark |
-| `Body` | Spine: First → Content → Last |
-| `Build` | Materialize `PagedDocument` (requires a title) |
+| `Body` | Compatibility spine that is converted into sections |
+| `Section` / `Columns` / `Table` | Add semantic flow units directly |
+| `FirstPage` / `LastPage` | Configure dedicated page definitions |
+| `Build` | Materialize immutable `Document` (requires a title) |
 
 ## Meta
 
@@ -74,12 +105,12 @@ Shortcuts:
 
 ## Body spine
 
-`DocumentBodyBuilder`:
+`DocumentBodyBuilder` is retained as a migration surface:
 
 | Method | Maps to |
 | --- | --- |
 | `First(…)` | `FirstPage` + `IncludeCover = true` |
-| `Content(…)` | `PagedDocument.Body` blocks + optional Toc flag |
+| `Content(…)` | Legacy blocks converted to semantic sections + optional outline flag |
 | `Last(…)` | `LastPage` |
 
 ### First
@@ -197,7 +228,7 @@ See [blocks.md](blocks.md#tableblock).
 Everything the DSL builds is ordinary immutable types. Skip the builder when mapping:
 
 ```csharp
-new PagedDocument { Meta = …, Setup = …, Typography = …, Body = […] }
+new Document { Meta = …, Setup = …, Typography = …, Sections = […] }
 ```
 
 See [mappers.md](mappers.md).

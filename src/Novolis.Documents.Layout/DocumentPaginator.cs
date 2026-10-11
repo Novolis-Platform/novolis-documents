@@ -6,6 +6,10 @@ namespace Novolis.Documents.Layout;
 /// <summary>One-column document paginator (dumb layout — not a constraint engine).</summary>
 public static class DocumentPaginator
 {
+    /// <summary>Builds a page plan for the semantic section model.</summary>
+    public static PagePlan Paginate(Document document, ITextMeasurer measurer) =>
+        SectionPaginator.Paginate(document, measurer);
+
     /// <summary>Builds a <see cref="PagePlan"/> for <paramref name="document"/>.</summary>
     public static PagePlan Paginate(PagedDocument document, ITextMeasurer measurer)
     {

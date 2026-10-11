@@ -1,8 +1,25 @@
 # Document model
 
-`PagedDocument` is the immutable root. Builders and mappers both produce this shape; layout and PDF only consume it.
+`Document` is the immutable semantic root. Builders and mappers produce this shape; layout consumes only its vertical `Sections` sequence and optional `FirstPage` / `LastPage` definitions.
 
-## PagedDocument
+## Semantic spine
+
+```text
+Document
+  ├── FirstPage.Sections?
+  ├── Sections[]                 // normal vertical flow
+  └── LastPage.Sections?
+       ↓
+  SectionPaginator → PagePlan → DocumentPdf
+```
+
+The core contracts are `ISection`, `IContent`, and `IContainer`. `Section` stacks content vertically. `ColumnsSection` arranges `Column` containers locally. `TableSection` owns columns, rows, measurement, and repeated-header pagination.
+
+The small content vocabulary is `Text`, `Number`, `Heading`, `Image`, `Rule`, `Spacer`, `KeyValue`, and `Code`. `Number` stays numeric until presentation. Core model types do not reference Skia, PDF, UBL, or Markdown.
+
+## Compatibility block view
+
+The older `PagedDocument` / `IBlock` shape remains available only as a migration view for existing callers. New code should use `Document.Sections`; `DocumentBuilder.Body` converts legacy blocks during `Build()`.
 
 | Property | Role |
 | --- | --- |

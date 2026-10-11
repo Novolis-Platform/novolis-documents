@@ -11,7 +11,7 @@ namespace Novolis.Documents.Unit.Ubl;
 /// Norwegian invoice <em>layout</em> (parties → lines → payment; A4; no giro), English copy.
 /// Not a product API.
 /// </summary>
-internal static class UblInvoiceDocumentMapper
+internal static class LegacyUblInvoiceDocumentMapper
 {
     /// <summary>Norwegian number/date shapes (dd.MM.yyyy, 1 234,56) — not Norwegian words.</summary>
     static readonly CultureInfo Nb = CultureInfo.GetCultureInfo("nb-NO");

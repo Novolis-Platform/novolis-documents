@@ -11,6 +11,38 @@ public static class DocumentPdf
     const string RegularFontResource = "Novolis.Documents.Skia.Fonts.LiberationSerif-Regular.ttf";
     const string BoldFontResource = "Novolis.Documents.Skia.Fonts.LiberationSerif-Bold.ttf";
 
+    /// <summary>Writes a semantic document to a PDF file.</summary>
+    public static void Write(Document document, string path, DocumentPdfOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var bytes = SemanticDocumentPdfRenderer.ToBytes(document, options);
+        var dir = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+        File.WriteAllBytes(path, bytes);
+    }
+
+    /// <summary>Generates PDF bytes from a semantic document.</summary>
+    public static byte[] ToBytes(Document document, DocumentPdfOptions? options = null) =>
+        SemanticDocumentPdfRenderer.ToBytes(document, options);
+
+    /// <summary>Paginates a semantic document with the renderer's real font metrics.</summary>
+    public static PagePlan Layout(Document document, DocumentPdfOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        options ??= new DocumentPdfOptions();
+        using var typeface = LoadTypeface(options.BodyFontPath, bold: false);
+        using var boldTypeface = LoadTypeface(options.BoldFontPath ?? options.BodyFontPath, bold: true);
+        using var monoTypeface = LoadMonoTypeface(document.Typography.CodeFontFamily);
+        return SectionPaginator.Paginate(
+            document,
+            new SkiaTextMeasurer(
+                typeface,
+                boldTypeface,
+                monoTypeface,
+                document.Typography.CodeFontFamily));
+    }
+
     /// <summary>Writes a PDF file.</summary>
     public static void Write(PagedDocument document, string path, DocumentPdfOptions? options = null)
     {

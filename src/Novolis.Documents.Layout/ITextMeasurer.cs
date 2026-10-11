@@ -10,4 +10,12 @@ public interface ITextMeasurer
 
     /// <summary>Wraps <paramref name="text"/> into display lines for <paramref name="widthPt"/>.</summary>
     IReadOnlyList<string> WrapLines(string text, float widthPt, TextStyle style);
+
+    /// <summary>
+    /// Returns the natural single-line width of <paramref name="text"/>.
+    /// Implementations may provide real font metrics; the default is a deterministic estimate.
+    /// </summary>
+    float MeasureWidth(string text, TextStyle style) =>
+        (text ?? string.Empty).Split('\n').Max(static line => line.Length)
+        * System.Math.Max(1f, style.FontSizePt) * 0.5f;
 }

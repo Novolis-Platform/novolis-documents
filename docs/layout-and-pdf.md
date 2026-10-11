@@ -3,8 +3,8 @@
 ## Pipeline
 
 ```text
-PagedDocument
-    → DocumentPaginator.Paginate(document, ITextMeasurer)
+Document
+    → SectionPaginator.Paginate(document, ITextMeasurer)
     → PagePlan
     → DocumentPdf paint (Skia)
 ```
@@ -21,13 +21,14 @@ PagePlan plan = DocumentPaginator.Paginate(document, measurer);
 
 ### Responsibilities
 
-- Emit First / Toc / Body / Last page slices when configured
-- Measure and place blocks in a single content column
-- Split overflow across body pages
-- Apply H1 / `Chapter` page breaks
+- Emit First / Body / Last page slices from page definitions and flow
+- Measure semantic sections using the same `ITextMeasurer` used by Skia
+- Return explicit `Fits`, `Split`, `NeedsNewPage`, or `Impossible` results
+- Split text at line boundaries and tables between whole rows
+- Repeat table headers without emitting an orphan header
 - Resolve header/footer visibility from include flags
-- Track `ChapterTitle` for body pages
 - Build `TocEntries` with resolved page numbers when `IncludeToc` is set
+- Raise typed `LayoutFailure` diagnostics for impossible geometry
 
 ### ITextMeasurer
 
@@ -49,15 +50,18 @@ public interface ITextMeasurer
 | --- | --- |
 | `PagePlan` | Ordered `Pages` + `TocEntries` |
 | `PageSlice` | One finished page |
+| `PlacedFragment` | Semantic fragment + Y offset + height |
+| `TableFragment` | Table rows and repeated-header state for one page |
 | `PlacedBlock` | Block + `YInContentPt` + `HeightPt` |
-| `PageKind` | `Cover`, `Toc`, `Body`, `Last` |
+| `PageKind` | `First`, `Body`, `Last` |
 
 `PageSlice` fields of interest:
 
 - `Number` — 1-based
 - `ShowHeader` / `ShowFooter` — resolved for that kind
 - `ChapterTitle` — for chapter-style headers
-- `Blocks` — empty on First (cover is painted from Meta/First, not placed blocks)
+- `Fragments` — renderer-independent semantic placements
+- `Blocks` — compatibility projection for legacy callers
 
 ## DocumentPdf
 

@@ -38,6 +38,19 @@ public sealed class SkiaTextMeasurer : ITextMeasurer
         return DocumentPdf.WrapLines(text ?? string.Empty, font, widthPt);
     }
 
+    /// <inheritdoc />
+    public float MeasureWidth(string text, TextStyle style)
+    {
+        var typeface = ResolveTypeface(style);
+        using var font = new SKFont(typeface, style.FontSizePt);
+        return (text ?? string.Empty)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(font.MeasureText)
+            .DefaultIfEmpty(0f)
+            .Max();
+    }
+
     SKTypeface ResolveTypeface(TextStyle style)
     {
         if (style.Bold)
