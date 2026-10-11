@@ -156,7 +156,7 @@ internal static class SemanticDocumentPdfRenderer
                     monoTypeface,
                     measurer,
                     x,
-                    y + columns.Layout.SpaceBefore,
+                    y,
                     width);
                 break;
             case ColumnsFragment columns:
@@ -170,7 +170,7 @@ internal static class SemanticDocumentPdfRenderer
                     monoTypeface,
                     measurer,
                     x,
-                    y + box.Layout.SpaceBefore,
+                    y + columns.Layout.SpaceBefore,
                     width);
                 break;
             case TableFragment table:
@@ -195,7 +195,7 @@ internal static class SemanticDocumentPdfRenderer
                     monoTypeface,
                     measurer,
                     x,
-                    y,
+                    y + box.Layout.SpaceBefore,
                     width);
                 break;
         }
