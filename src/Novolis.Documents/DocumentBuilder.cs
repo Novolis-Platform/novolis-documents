@@ -20,6 +20,7 @@ public sealed class DocumentBuilder
     DocumentTheme? _theme;
     readonly DocumentBodyBuilder _legacyBody = new();
     readonly List<ISection> _sections = [];
+    IReadOnlyList<IBlock>? _compatibilityBody;
     PageDefinition? _firstPage;
     PageDefinition? _lastPage;
     bool _includeToc;
@@ -125,6 +126,17 @@ public sealed class DocumentBuilder
         return this;
     }
 
+    /// <summary>
+    /// Retains a legacy block projection for callers that inspect <see cref="Document.Body"/>
+    /// while the semantic sections remain the source of layout.
+    /// </summary>
+    public DocumentBuilder CompatibilityBody(IEnumerable<IBlock> blocks)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        _compatibilityBody = blocks.ToArray();
+        return this;
+    }
+
     /// <summary>Adds a horizontal columns section.</summary>
     public DocumentBuilder Columns(Action<ColumnsSectionBuilder> configure)
     {
@@ -200,7 +212,8 @@ public sealed class DocumentBuilder
         }
 
         var sections = new List<ISection>(_sections);
-        sections.AddRange(LegacyBlockMapper.ToSections(_legacyBody.ContentBlocks));
+        if (_compatibilityBody is null)
+            sections.AddRange(LegacyBlockMapper.ToSections(_legacyBody.ContentBlocks));
 
         var first = _firstPage;
         if (first is null && _legacyBody.FirstPage is { } legacyFirst)
@@ -228,7 +241,7 @@ public sealed class DocumentBuilder
             FirstPage = first,
             LastPage = last,
             IncludeCover = _legacyBody.IncludeCover || first is not null,
-            Body = _legacyBody.ContentBlocks,
+            Body = _compatibilityBody ?? _legacyBody.ContentBlocks,
             IncludeToc = _includeToc || _legacyBody.IncludeToc,
             Sections = sections.ToArray(),
         };
