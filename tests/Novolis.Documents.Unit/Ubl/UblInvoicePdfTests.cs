@@ -93,7 +93,7 @@ public sealed class UblInvoicePdfTests
             .SelectMany(static page => page.Fragments)
             .Select(static placed => placed.Fragment)
             .OfType<TableFragment>()
-            .Where(fragment => ReferenceEquals(fragment.Table, largeTable))
+            .Where(static fragment => fragment.Table.Columns.Count >= 8)
             .ToArray();
 
         await Assert.That(fragments.Length).IsGreaterThan(1);

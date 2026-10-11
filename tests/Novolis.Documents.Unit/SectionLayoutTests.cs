@@ -108,4 +108,87 @@ public sealed class SectionLayoutTests
         await Assert.That(failure!.Kind).IsEqualTo(LayoutFailureKind.TableRowTooLarge);
         await Assert.That(failure.RowIndex).IsEqualTo(0);
     }
+
+    [Test]
+    public async Task Table_resolves_fixed_auto_and_weighted_widths_once()
+    {
+        var table = new TableSection(
+            [
+                new TableColumn(ColumnWidth.FixedPoints(72f)),
+                new TableColumn(ColumnWidth.AutoSize()),
+                new TableColumn(ColumnWidth.WeightBy(1f)),
+            ],
+            [new TableRow("1", "Automatic description", "Amount")],
+            new TableOptions
+            {
+                Header = new TableRow("No.", "Description", "Total"),
+            });
+        var document = new Document
+        {
+            Meta = new DocumentMeta { Title = "Widths" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            Sections = [table],
+        };
+
+        var fragment = DocumentPaginator.Paginate(document, new FakeTextMeasurer())
+            .Pages
+            .SelectMany(static page => page.Fragments)
+            .OfType<TableFragment>()
+            .Single();
+
+        await Assert.That(fragment.ColumnWidths.Count).IsEqualTo(3);
+        await Assert.That(fragment.ColumnWidths[0]).IsEqualTo(72f);
+        await Assert.That(fragment.ColumnWidths[1]).IsGreaterThan(0f);
+        await Assert.That(fragment.ColumnWidths[2]).IsGreaterThan(0f);
+    }
+
+    [Test]
+    public async Task Table_can_disable_header_repetition_without_losing_rows()
+    {
+        var rows = Enumerable.Range(1, 140)
+            .Select(static number => new TableRow(number.ToString(), new string('x', 80)))
+            .ToArray();
+        var document = new Document
+        {
+            Meta = new DocumentMeta { Title = "No repeat" },
+            Setup = new PageSetup
+            {
+                Trim = TrimPresets.Inch6x9,
+                Margin = TrimPresets.DefaultMargin,
+            },
+            Typography = new Typography(),
+            Sections =
+            [
+                new TableSection(
+                    [
+                        new TableColumn(ColumnWidth.WeightBy(1f)),
+                        new TableColumn(ColumnWidth.WeightBy(3f)),
+                    ],
+                    rows,
+                    new TableOptions
+                    {
+                        Header = new TableRow("No.", "Description"),
+                        RepeatHeader = false,
+                    }),
+            ],
+        };
+
+        var fragments = DocumentPaginator.Paginate(document, new FakeTextMeasurer())
+            .Pages
+            .SelectMany(static page => page.Fragments)
+            .OfType<TableFragment>()
+            .ToArray();
+
+        await Assert.That(fragments.Length).IsGreaterThan(1);
+        await Assert.That(fragments[0].Header).IsNotNull();
+        await Assert.That(fragments.Skip(1).All(static fragment => fragment.Header is null))
+            .IsTrue();
+        await Assert.That(fragments.SelectMany(static fragment => fragment.Rows).Count)
+            .IsEqualTo(rows.Length);
+    }
 }
