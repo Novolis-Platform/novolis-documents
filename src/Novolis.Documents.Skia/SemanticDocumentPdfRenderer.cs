@@ -164,6 +164,7 @@ internal static class SemanticDocumentPdfRenderer
                     canvas,
                     document,
                     (ColumnsSection)columns.Source,
+                    columns.ColumnWidths,
                     typeface,
                     boldTypeface,
                     monoTypeface,
@@ -307,7 +308,8 @@ internal static class SemanticDocumentPdfRenderer
                         table.Options.ShowHeader ? table.Options.Header : null,
                         MeasureTable(document, table, width, measurer),
                         isContinuation: false,
-                        hasRepeatedHeader: false),
+                        hasRepeatedHeader: false,
+                        columnWidths: ResolveWidths(table, width, document, measurer)),
                     typeface,
                     boldTypeface,
                     measurer,
@@ -355,6 +357,7 @@ internal static class SemanticDocumentPdfRenderer
                     canvas,
                     document,
                     columns,
+                    null,
                     typeface,
                     boldTypeface,
                     monoTypeface,
@@ -390,6 +393,7 @@ internal static class SemanticDocumentPdfRenderer
         SKCanvas canvas,
         Document document,
         ColumnsSection columns,
+        IReadOnlyList<float>? resolvedWidths,
         SKTypeface typeface,
         SKTypeface boldTypeface,
         SKTypeface monoTypeface,
@@ -398,7 +402,9 @@ internal static class SemanticDocumentPdfRenderer
         float y,
         float width)
     {
-        var widths = ResolveWidths(columns, width, document, measurer);
+        var widths = resolvedWidths is { Count: > 0 }
+            ? resolvedWidths
+            : ResolveWidths(columns, width, document, measurer);
         if (widths is null)
             return;
 
@@ -439,7 +445,9 @@ internal static class SemanticDocumentPdfRenderer
         float width)
     {
         var table = fragment.Table;
-        var widths = ResolveWidths(table, width, document, measurer);
+        var widths = fragment.ColumnWidths.Count == table.Columns.Count
+            ? fragment.ColumnWidths.ToArray()
+            : ResolveWidths(table, width, document, measurer);
         if (widths is null)
             return;
 

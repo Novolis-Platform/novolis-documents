@@ -1,26 +1,29 @@
-# Blocks
+# Content and compatibility blocks
 
-`IBlock` instances live in `PagedDocument.Body`, nested chapter builders, column slots, and `LastPage.Blocks`. Layout walks them top-to-bottom in a single content column (except `ColumnsBlock`, which splits one row).
+New documents use `ISection` and `IContent`. Sections live in `Document.Sections` and are laid out top-to-bottom. `IBlock` remains a compatibility vocabulary for older callers and is converted into semantic sections by `DocumentBuilder`.
 
 ## Catalog
 
 | Type | Purpose |
 | --- | --- |
-| `HeadingBlock` | Level 1–3 titles |
-| `ParagraphBlock` | Body prose |
-| `TableBlock` | Grid of string cells |
-| `ColumnsBlock` | Side-by-side block streams |
-| `ImageBlock` | Raster/SVG bytes or path |
-| `TextBoxBlock` | Bordered text panel (notes / panels); splits by line across pages |
-| `CodeBlock` | Monospace filled panel; optional line numbers + colored spans; splits by line across pages |
-| `SceneBreakBlock` | Ornamental break between scenes |
-| `LineBreakBlock` | Forced blank body line |
-| `PageBreakBlock` | Force a new page in the current region (Body / First / Last) |
-| `BlankPageBlock` | Emit an intentionally empty page |
+| `Text` | Wrappable prose |
+| `Number` | Numeric value with deferred formatting |
+| `Heading` | Hierarchical title |
+| `TableSection` | Rows, columns, measurement, and page splitting |
+| `ColumnsSection` | Local horizontal composition |
+| `Image` | Raster/SVG bytes or path |
+| `Box` / `Code` | Bordered or monospace content |
+| `Rule` / `Spacer` | Structural separators |
+| `PageBreakSection` | Explicit page boundary |
+Compatibility equivalents include `HeadingBlock`, `ParagraphBlock`, `TableBlock`, `ColumnsBlock`, `ImageBlock`, `TextBoxBlock`, `CodeBlock`, `SceneBreakBlock`, `LineBreakBlock`, `PageBreakBlock`, and `BlankPageBlock`.
 
 Fluent verbs live on `DocumentContentBuilder` / nested builders — see [authoring.md](authoring.md).
 
-## HeadingBlock
+## Compatibility block forms
+
+The examples below document the migration vocabulary. Prefer the semantic types above for new mappers and builders.
+
+### HeadingBlock
 
 ```csharp
 new HeadingBlock { Level = 1, Text = "Arrival" }

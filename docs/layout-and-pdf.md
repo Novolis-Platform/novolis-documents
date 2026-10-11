@@ -51,7 +51,8 @@ public interface ITextMeasurer
 | `PagePlan` | Ordered `Pages` + `TocEntries` |
 | `PageSlice` | One finished page |
 | `PlacedFragment` | Semantic fragment + Y offset + height |
-| `TableFragment` | Table rows and repeated-header state for one page |
+| `ColumnsFragment` | Columns plus resolved widths for one page |
+| `TableFragment` | Rows, repeated-header state, and resolved widths for one page |
 | `PlacedBlock` | Block + `YInContentPt` + `HeightPt` |
 | `PageKind` | `First`, `Body`, `Last` |
 
@@ -62,6 +63,9 @@ public interface ITextMeasurer
 - `ChapterTitle` — for chapter-style headers
 - `Fragments` — renderer-independent semantic placements
 - `Blocks` — compatibility projection for legacy callers
+
+The paginator resolves column and table widths once. Those resolved point widths travel in
+the fragments so the renderer paints the completed plan without making pagination decisions.
 
 ## DocumentPdf
 

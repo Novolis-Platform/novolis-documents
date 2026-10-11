@@ -46,7 +46,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer
         return (text ?? string.Empty)
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n')
-            .Select(font.MeasureText)
+            .Select(line => font.MeasureText(line))
             .DefaultIfEmpty(0f)
             .Max();
     }

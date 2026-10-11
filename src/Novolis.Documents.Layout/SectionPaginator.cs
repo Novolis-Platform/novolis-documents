@@ -89,6 +89,23 @@ public static class SectionPaginator
                 continue;
             }
 
+            if (page.Fragments.Count > 0
+                && GetLayout(section).KeepWithNext
+                && pending.TryPeek(out var next)
+                && ShouldMoveWithNext(
+                    document,
+                    section,
+                    next,
+                    width,
+                    pageHeight,
+                    y,
+                    measurer))
+            {
+                page = CreatePage(kind, pages.Count + 1);
+                pages.Add(page);
+                y = 0f;
+            }
+
             var continuation = false;
             while (true)
             {
@@ -333,7 +350,7 @@ public static class SectionPaginator
             height = System.Math.Max(height, MeasureContents(document, section.Columns[i].Contents, widths[i], measurer));
         height += before;
         if (height <= availableHeight)
-            return new SectionLayoutResult.Fits(new ColumnsFragment(section, height));
+            return new SectionLayoutResult.Fits(new ColumnsFragment(section, height, widths));
         if (height <= pageHeight && section.Layout.KeepTogether)
             return new SectionLayoutResult.NeedsNewPage();
         return new SectionLayoutResult.Impossible(new LayoutFailure(
@@ -482,7 +499,14 @@ public static class SectionPaginator
                 table.Options,
                 table.Layout with { SpaceBefore = 0f });
             return new SectionLayoutResult.Split(
-                new TableFragment(table, fragmentRows, header, used, continuation, repeated),
+                new TableFragment(
+                    table,
+                    fragmentRows,
+                    header,
+                    used,
+                    continuation,
+                    repeated,
+                    columnWidths),
                 tail);
         }
 
@@ -490,7 +514,14 @@ public static class SectionPaginator
             used += footerHeight;
 
         return new SectionLayoutResult.Fits(
-            new TableFragment(table, fragmentRows, header, used, continuation, repeated));
+            new TableFragment(
+                table,
+                fragmentRows,
+                header,
+                used,
+                continuation,
+                repeated,
+                columnWidths));
     }
 
     static float MeasureContents(
@@ -804,6 +835,73 @@ public static class SectionPaginator
     };
 
     static float SpaceAfter(ISection section) => GetLayout(section).SpaceAfter;
+
+    static bool ShouldMoveWithNext(
+        Document document,
+        ISection section,
+        ISection next,
+        float width,
+        float pageHeight,
+        float usedHeight,
+        ITextMeasurer measurer)
+    {
+        var current = MinimumSectionHeight(document, section, width, measurer)
+            + System.Math.Max(0f, GetLayout(section).SpaceAfter);
+        var following = MinimumSectionHeight(document, next, width, measurer);
+        var required = current + following;
+        var remaining = pageHeight - usedHeight;
+        return required <= pageHeight && required > remaining;
+    }
+
+    static float MinimumSectionHeight(
+        Document document,
+        ISection section,
+        float width,
+        ITextMeasurer measurer)
+    {
+        var layout = GetLayout(section);
+        var before = System.Math.Max(0f, layout.SpaceBefore);
+        return section switch
+        {
+            PageBreakSection => 0f,
+            Section flow when flow.Contents.Count == 0 => before,
+            Section flow => before + MeasureContent(document, flow.Contents[0], width, measurer),
+            ColumnsSection columns => before
+                + MeasureColumnsContent(document, columns, width, measurer),
+            TableSection table => before + MinimumTableHeight(document, table, width, measurer),
+            Box box => before + MeasureContents(document, box.Contents, width - 12f, measurer) + 12f,
+            _ => before,
+        };
+    }
+
+    static float MinimumTableHeight(
+        Document document,
+        TableSection table,
+        float width,
+        ITextMeasurer measurer)
+    {
+        var columnWidths = ResolveWidths(
+            table.Columns.Select(static column => column.Width).ToArray(),
+            TableContentsByColumn(table),
+            width,
+            0f,
+            document,
+            measurer,
+            table.Options.CellPaddingPt * 2f);
+        if (columnWidths is null)
+            throw new LayoutFailure(
+                LayoutFailureKind.InvalidColumnConfiguration,
+                $"Table widths for {table.GetType().Name} cannot be resolved.",
+                table.GetType(),
+                width);
+
+        var height = 0f;
+        if (table.Options.ShowHeader && table.Options.Header is { } header)
+            height += MeasureRow(document, header, columnWidths, table.Options.CellPaddingPt, measurer);
+        if (table.Rows.Count > 0)
+            height += MeasureRow(document, table.Rows[0], columnWidths, table.Options.CellPaddingPt, measurer);
+        return height;
+    }
 
     static float ParagraphSpacing(Document document) => System.Math.Max(0f, document.Typography.ParagraphSpacingPt);
 

@@ -75,9 +75,21 @@ public sealed record FlowFragment(
     float HeightPt) : SectionFragment(Source, HeightPt);
 
 /// <summary>Fragment of a columns section.</summary>
-public sealed record ColumnsFragment(
-    ISection Source,
-    float HeightPt) : SectionFragment(Source, HeightPt);
+public sealed record ColumnsFragment : SectionFragment
+{
+    /// <summary>Creates a columns fragment with resolved widths.</summary>
+    public ColumnsFragment(
+        ISection source,
+        float heightPt,
+        IReadOnlyList<float>? columnWidths = null)
+        : base(source, heightPt)
+    {
+        ColumnWidths = columnWidths ?? [];
+    }
+
+    /// <summary>Resolved column widths in points.</summary>
+    public IReadOnlyList<float> ColumnWidths { get; }
+}
 
 /// <summary>Fragment of a table section.</summary>
 public sealed record TableFragment : SectionFragment
@@ -89,13 +101,15 @@ public sealed record TableFragment : SectionFragment
         TableRow? header,
         float heightPt,
         bool isContinuation,
-        bool hasRepeatedHeader)
+        bool hasRepeatedHeader,
+        IReadOnlyList<float>? columnWidths = null)
         : base(source, heightPt)
     {
         Rows = rows;
         Header = header;
         IsContinuation = isContinuation;
         HasRepeatedHeader = hasRepeatedHeader;
+        ColumnWidths = columnWidths ?? [];
     }
 
     /// <summary>Source table.</summary>
@@ -112,6 +126,9 @@ public sealed record TableFragment : SectionFragment
 
     /// <summary>Whether the header is repeated rather than the initial header.</summary>
     public bool HasRepeatedHeader { get; }
+
+    /// <summary>Resolved column widths in points.</summary>
+    public IReadOnlyList<float> ColumnWidths { get; }
 }
 
 /// <summary>Fragment of a boxed content section.</summary>

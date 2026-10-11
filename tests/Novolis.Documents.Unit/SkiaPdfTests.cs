@@ -9,6 +9,53 @@ namespace Novolis.Documents.Unit;
 public sealed class SkiaPdfTests
 {
     [Test]
+    public async Task Semantic_document_renders_text_numbers_columns_and_table()
+    {
+        var document = Document.Create("Semantic PDF")
+            .Page(page => page
+                .A4()
+                .Footer(footer => footer
+                    .Template("{page} / {pages}")
+                    .IncludeBody()
+                    .IncludeFirstPage()
+                    .IncludeLastPage()))
+            .FirstPage(page => page.Section(section => section
+                .Heading("Invoice", 1)
+                .Text("Opening information")))
+            .Section(section => section
+                .Heading("Summary", 2)
+                .Text("Net")
+                .Number(1234.5m, NumberFormat.Currency("NOK", 2))
+                .Columns(columns => columns
+                    .Column(column => column
+                        .Heading("Supplier", 3)
+                        .Text("Acme AS"))
+                    .Column(column => column
+                        .Heading("Buyer", 3)
+                        .Text("Harbor Stores"))))
+            .Table(table => table
+                .Columns(
+                    new TableColumn(ColumnWidth.WeightBy(1f)),
+                    new TableColumn(ColumnWidth.WeightBy(1f), HorizontalAlignment.Right))
+                .Header("Description", "Amount")
+                .Row("Freight", "120.00"))
+            .LastPage(page => page.Section(section => section.Text("Payment terms")))
+            .Build();
+
+        var plan = DocumentPdf.Layout(document);
+        var bytes = DocumentPdf.ToBytes(document);
+
+        await Assert.That(plan.Pages.First().Kind).IsEqualTo(PageKind.First);
+        await Assert.That(plan.Pages.Last().Kind).IsEqualTo(PageKind.Last);
+        await Assert.That(plan.Pages.Count(static page => page.Kind == PageKind.Body))
+            .IsGreaterThan(0);
+        await Assert.That(plan.Pages.SelectMany(static page => page.Fragments)).IsNotEmpty();
+        await Assert.That(bytes.Length).IsGreaterThan(1000);
+        await Assert.That(bytes[0]).IsEqualTo((byte)'%');
+        await Assert.That(bytes[1]).IsEqualTo((byte)'P');
+    }
+
+    [Test]
     public async Task ToBytes_inch6x9_has_cover_sections_and_bytes()
     {
         var document = new PagedDocument

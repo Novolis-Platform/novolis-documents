@@ -1,17 +1,17 @@
 # Novolis.Documents documentation
 
-Paged document island for Novolis: immutable model → one-column layout → SkiaSharp PDF.
+Semantic document island for Novolis: immutable sections → layout plan → SkiaSharp PDF.
 
 | Doc | What it covers |
 | --- | --- |
 | [getting-started.md](getting-started.md) | Install, first PDF, dogfood samples, build/test |
 | [design.md](design.md) | Package stack, goals, non-goals, page lifecycle |
 | [authoring.md](authoring.md) | Fluent `Document.Create` DSL (P1 spine) |
-| [model.md](model.md) | `PagedDocument`, meta, page setup, typography |
-| [blocks.md](blocks.md) | Block catalog (headings, tables, columns, images, …) |
+| [model.md](model.md) | `Document`, semantic sections, meta, page setup, typography |
+| [blocks.md](blocks.md) | Compatibility block catalog and semantic equivalents |
 | [header-footer.md](header-footer.md) | Header / footer includes, templates, chapter title, watermark |
 | [layout-and-pdf.md](layout-and-pdf.md) | `DocumentPaginator`, `PagePlan`, `DocumentPdf` |
-| [mappers.md](mappers.md) | Mapping external formats into `PagedDocument` |
+| [mappers.md](mappers.md) | Mapping external formats into `Document` |
 | [faq.md](faq.md) | Common questions |
 | [release.md](release.md) | CalVer / publish |
 
@@ -30,21 +30,17 @@ Document.Create(title)
   .Meta(…)
   .Page(p => p.Header(…).Footer(…))
   .Watermark(…)          // optional
-  .Body(b => b
-      .First(…)          // title page
-      .Content(c => c    // main flow
-          .Toc()
-          .Chapter(…)
-          .Paragraph(…)
-          .Table(…))
-      .Last(…))          // closing page
+  .FirstPage(p => p.Section(…))
+  .Section(s => s.Heading(…).Text(…))
+  .Table(t => t.Header(…).Row(…))
+  .LastPage(p => p.Section(…))
   .Build()
         │
         ▼
-   PagedDocument  (immutable)
+   Document  (immutable)
         │
         ▼
- DocumentPaginator.Paginate  →  PagePlan
+ SectionPaginator.Paginate  →  PagePlan
         │
         ▼
  DocumentPdf.Write / ToBytes  →  PDF

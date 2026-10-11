@@ -1,11 +1,11 @@
-# Mapping into PagedDocument
+# Mapping into Document
 
-The fluent DSL is for hand-authored samples and product hosts. Pipelines usually build the immutable model with object initializers (or their own builders) and call `DocumentPdf`.
+The fluent DSL is for hand-authored samples and product hosts. Pipelines usually build the immutable semantic model with object initializers (or their own builders) and call `DocumentPdf`.
 
 ## Pattern
 
 ```csharp
-static PagedDocument Map(MySource source) => new()
+static Document Map(MySource source) => new()
 {
     Meta = new DocumentMeta
     {
@@ -34,31 +34,45 @@ static PagedDocument Map(MySource source) => new()
     },
     IncludeCover = false,
     IncludeToc = false,
-    Body = BuildBlocks(source),
+    Sections = BuildSections(source),
 };
 
-static IReadOnlyList<IBlock> BuildBlocks(MySource source) =>
+static IReadOnlyList<ISection> BuildSections(MySource source) =>
 [
-    new ImageBlock { Path = source.LogoPath, Width = Length.FromPoints(120), Height = Length.FromPoints(40) },
-    new ColumnsBlock
-    {
-        Gap = Length.FromPoints(16),
-        Fractions = [0.5f, 0.5f],
-        Columns =
+    new Section([new Image(source.LogoPath, 120f, 40f)]),
+    new ColumnsSection(
         [
-            [new HeadingBlock { Level = 3, Text = "From" }, new ParagraphBlock { Text = source.Seller }],
-            [new HeadingBlock { Level = 3, Text = "To" }, new ParagraphBlock { Text = source.Buyer }],
+            new Column(
+            [
+                new Heading("From", 3),
+                new Text(source.Seller),
+            ], ColumnWidth.WeightBy(1)),
+            new Column(
+            [
+                new Heading("To", 3),
+                new Text(source.Buyer),
+            ], ColumnWidth.WeightBy(1)),
         ],
-    },
-    new TableBlock
-    {
-        Headers = ["#", "Description", "Amount"],
-        Rows = source.Lines.Select(l => (IReadOnlyList<string>)[l.No, l.Desc, l.Amount]).ToArray(),
-        ColumnWidths = [0.1f, 0.65f, 0.25f],
-        ColumnAlignments = [CellAlign.Left, CellAlign.Left, CellAlign.Right],
-        Rules = TableRuleStyle.Horizontal,
-        HeaderBackground = true,
-    },
+        gapPt: 16f),
+    new TableSection(
+        [
+            new TableColumn(ColumnWidth.WeightBy(0.1f)),
+            new TableColumn(ColumnWidth.WeightBy(0.65f)),
+            new TableColumn(ColumnWidth.WeightBy(0.25f), HorizontalAlignment.Right),
+        ],
+        source.Lines.Select(line => new TableRow(
+        [
+            new TableCell(line.No),
+            new TableCell(line.Desc),
+            new TableCell(new Number(decimal.Parse(line.Amount, CultureInfo.InvariantCulture),
+                NumberFormat.Currency(source.Currency))),
+        ])),
+        new TableOptions
+        {
+            Header = new TableRow("#", "Description", "Amount"),
+            HeaderBackground = true,
+            RuleStyle = TableRuleStyle.Horizontal,
+        }),
 ];
 ```
 
@@ -70,7 +84,7 @@ Tests only (not a published package):
 
 | File | Role |
 | --- | --- |
-| `d:\novolis\novolis-documents\tests\Novolis.Documents.Unit\Ubl\UblInvoiceDocumentMapper.cs` | Lean UBL invoice → `PagedDocument` |
+| `d:\novolis\novolis-documents\tests\Novolis.Documents.Unit\Ubl\UblInvoiceDocumentMapper.cs` | Lean UBL invoice → `Document` |
 | `d:\novolis\novolis-documents\tests\Novolis.Documents.Unit\Ubl\UblInvoicePdfTests.cs` | Writes PDF under artifacts |
 
 Layout language is Norwegian-style sections; copy can stay English. Uses A4, logo SVG, columns for parties/payment, rich line table.
@@ -81,7 +95,7 @@ Artifact path used by the test:
 
 ## Markup bridge
 
-Markdown → Documents lives outside this repo (dogfood: `HelloMarkdownPdf`). Pattern: parse markup → map AST nodes to `IBlock` → `DocumentPdf`.
+Markdown → Documents lives outside this repo (dogfood: `HelloMarkdownPdf`). Pattern: parse markup → map AST nodes to `ISection` / `IContent` → `DocumentPdf`.
 
 ## When to use Fluent vs mapper
 
