@@ -50,7 +50,9 @@ For NuGet.org and Visual Studio, the **embedded** README.md inside each package 
 <!-- novolis-package-index:end -->
 # novolis-documents
 
-MIT paged PDF island for Novolis: customary trims (6×9 primary), First / Toc / Body / Last spine, header & footer, Skia paint. Domain-agnostic public API.
+MIT semantic PDF island for Novolis: customary trims, a vertical `Document.Sections` flow,
+first/body/last page roles, headers and footers, and Skia painting. The public API stays
+domain-agnostic.
 
 ## Documentation
 
@@ -59,8 +61,8 @@ MIT paged PDF island for Novolis: customary trims (6×9 primary), First / Toc / 
 | [docs/README.md](docs/README.md) | Doc index |
 | [docs/getting-started.md](docs/getting-started.md) | Install, first PDF, dogfood |
 | [docs/authoring.md](docs/authoring.md) | Fluent `Document.Create` DSL |
-| [docs/model.md](docs/model.md) | `PagedDocument` and meta |
-| [docs/blocks.md](docs/blocks.md) | Block catalog |
+| [docs/model.md](docs/model.md) | `Document`, sections, and meta |
+| [docs/blocks.md](docs/blocks.md) | Semantic content and compatibility blocks |
 | [docs/header-footer.md](docs/header-footer.md) | Header, footer, watermark |
 | [docs/layout-and-pdf.md](docs/layout-and-pdf.md) | Pagination and `DocumentPdf` |
 | [docs/mappers.md](docs/mappers.md) | Mapping external sources |
@@ -76,9 +78,9 @@ using Novolis.Documents.Skia;
 
 var document = Document.Create("Harbor Notes")
     .Page(p => p.Trade6x9().Footer("{page} / {pages}"))
-    .Body(b => b
-        .Content(c => c
-            .Chapter("Arrival", ch => ch.Paragraph("The river ran cold."))))
+    .Section(section => section
+        .Heading("Arrival")
+        .Text("The river ran cold."))
     .Build();
 
 DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\harbor-notes.pdf");

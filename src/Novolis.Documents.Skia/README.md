@@ -6,7 +6,9 @@
 
 # Novolis.Documents.Skia
 
-SkiaSharp PDF writer for `PagedDocument`. Implements text measurement for layout and paints First, Toc, body, Last, header/footer bands, tables, columns, images, and watermark. No Skia types leak into `Novolis.Documents` / `.Layout` public APIs.
+SkiaSharp PDF writer for `Document`. Measures semantic layout with the same font metrics used
+for painting and renders First, body, Last, headers, footers, tables, columns, images, and
+watermarks. No Skia types leak into `Novolis.Documents` / `.Layout` public APIs.
 
 Embeds a Latin-subset **Liberation Serif** (OFL) by default so short PDFs stay small (~tens of KB) instead of shipping full system Georgia. Override with `DocumentPdfOptions.BodyFontPath` / `BoldFontPath`.
 
@@ -26,7 +28,7 @@ using Novolis.Documents.Skia;
 
 var document = Document.Create("Hello")
     .Page(p => p.Trade6x9().Footer("{page}"))
-    .Body(b => b.Content(c => c.Paragraph("Hello, document.")))
+    .Section(section => section.Text("Hello, document."))
     .Build();
 
 DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\hello.pdf");

@@ -10,7 +10,7 @@ Semantic document island for Novolis: immutable sections → layout plan → Ski
 | [model.md](model.md) | `Document`, semantic sections, meta, page setup, typography |
 | [blocks.md](blocks.md) | Compatibility block catalog and semantic equivalents |
 | [header-footer.md](header-footer.md) | Header / footer includes, templates, chapter title, watermark |
-| [layout-and-pdf.md](layout-and-pdf.md) | `DocumentPaginator`, `PagePlan`, `DocumentPdf` |
+| [layout-and-pdf.md](layout-and-pdf.md) | `SectionPaginator`, `PagePlan`, `DocumentPdf` |
 | [mappers.md](mappers.md) | Mapping external formats into `Document` |
 | [faq.md](faq.md) | Common questions |
 | [release.md](release.md) | CalVer / publish |

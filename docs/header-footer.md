@@ -8,7 +8,7 @@ Both `Header` and `Footer` use the same include model (defaults differ):
 
 | Flag | Page kind | Header default | Footer default |
 | --- | --- | --- | --- |
-| `IncludeFirstPage` | Opening / title (`PageKind.Cover`, including overflow First pages) | off | off |
+| `IncludeFirstPage` | Opening / title (`PageKind.First`, including overflow First pages) | off | off |
 | `IncludeToc` | TOC pages | off | off |
 | `IncludeBody` | Main flow | on | on |
 | `IncludeLastPage` | Closing (`PageKind.Last`, including overflow Last pages) | off | off |
@@ -101,10 +101,10 @@ Diagonal text painted **under** content (after white clear, before blocks).
 
 Named colors: `DocumentColor.Red`, `.Gray`, `.Black`, plus `FromRgb` / `Parse("#RRGGBB")`.
 
-Remove with `.NoWatermark()` or leave `PagedDocument.Watermark` null.
+Remove with `.NoWatermark()` or leave `Document.Watermark` null.
 
 ## Naming notes
 
 - Types are **`Header`** and **`Footer`** — not “RunningHeader”, not “Chrome”.
-- **First** page (not “cover” in the public model; layout still uses `PageKind.Cover` internally for that slot).
+- **First** page (not “cover” in the public model; `PageKind.Cover` remains a compatibility alias).
 - **Toc** is the contents page; the main flow is **Content** / **Body**.

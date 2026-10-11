@@ -6,7 +6,9 @@
 
 # Novolis.Documents
 
-Paged document model for Novolis: trim presets, typography, header/footer, watermark, and a closed set of content blocks. No Skia, no Markdown — map sources into `PagedDocument`, then paginate with `Novolis.Documents.Layout` and paint with `Novolis.Documents.Skia`.
+Semantic document model for Novolis: trim presets, typography, header/footer, watermark,
+sections, and semantic content. No Skia, no Markdown — map sources into `Document`, then
+paginate with `Novolis.Documents.Layout` and paint with `Novolis.Documents.Skia`.
 
 ## Install
 
@@ -33,18 +35,19 @@ var document = Document.Create("Sample")
         .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
         .Footer(f => f.Template("{page} / {pages}").IncludeBody()))
     .Watermark(w => w.Text("DRAFT").Color(DocumentColor.Red).Opacity(0.12f))
-    .Body(b => b
-        .First(f => f.Lines("Trade sample"))
-        .Content(c => c
-            .Toc()
-            .Chapter("Section One", ch => ch
-                .Paragraph("Once upon a time…")
-                .Table(t => t.Headers("A", "B").Row("1", "2"))))
-        .Last(l => l.Title("Colophon").Lines("End.")))
+    .FirstPage(page => page.Section(section => section.Text("Trade sample")))
+    .Section(section => section
+        .Heading("Section One")
+        .Text("Once upon a time…"))
+    .Table(table => table
+        .Header("A", "B")
+        .Row("1", "2"))
+    .LastPage(page => page.Section(section => section.Text("End.")))
     .Build();
 ```
 
-`Body` is the spine: **First → Content → Last**. `Chapter` is a level-1 heading (page break when prior content exists). Object initializers on `PagedDocument` remain supported for mappers.
+The document spine is **First → Sections → Last**. `Body` and block object initializers remain
+supported as migration surfaces for older callers.
 
 `DefaultMargin` is print-oriented (binding 0.75″ / outer 0.5″ / head 0.5″ / foot 0.65″). Use `TrimPresets.ReportMargin` for uniform 1″.
 
@@ -54,8 +57,8 @@ var document = Document.Create("Sample")
 | --- | --- |
 | [getting-started](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/getting-started.md) | Install + first PDF |
 | [authoring](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/authoring.md) | Fluent DSL reference |
-| [model](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/model.md) | `PagedDocument` |
-| [blocks](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/blocks.md) | Block catalog |
+| [model](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/model.md) | `Document` and sections |
+| [blocks](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/blocks.md) | Semantic content |
 | [header-footer](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/header-footer.md) | Header / footer / watermark |
 | [mappers](https://github.com/Novolis-Platform/novolis-documents/blob/main/docs/mappers.md) | Mapping pipelines |
 

@@ -11,12 +11,12 @@ Document
 
 `DocumentPdf.Write` / `ToBytes` call pagination with the same Skia measurer used for painting, so wrap heights match ink.
 
-## DocumentPaginator
+## SectionPaginator
 
 ```csharp
 using Novolis.Documents.Layout;
 
-PagePlan plan = DocumentPaginator.Paginate(document, measurer);
+PagePlan plan = SectionPaginator.Paginate(document, measurer);
 ```
 
 ### Responsibilities
@@ -39,6 +39,7 @@ public interface ITextMeasurer
 {
     float MeasureHeight(string text, float widthPt, TextStyle style);
     IReadOnlyList<string> WrapLines(string text, float widthPt, TextStyle style);
+    float MeasureWidth(string text, TextStyle style);
 }
 ```
 
@@ -94,18 +95,18 @@ Default: embedded Latin-subset **Liberation Serif** (OFL) for compact PDFs. Over
 
 1. Clear white  
 2. Watermark (if included for that kind)  
-3. Cover art / placed blocks  
+3. Semantic fragments  
 4. Header band text  
 5. Footer band text  
 
 ### What Skia paints that Layout does not invent
 
 - Actual glyphs, table rules, header background fills  
-- SVG/raster images (`ImageBlock`)  
+- SVG/raster images (`Image`)  
 - Scene-break ornament  
 - Diagonal watermark  
 
-Layout still owns **geometry**: where blocks sit and which pages exist.
+Layout still owns **geometry**: where fragments sit and which pages exist.
 
 ## Content box
 

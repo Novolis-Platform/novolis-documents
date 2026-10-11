@@ -2,23 +2,24 @@
 
 ## Is this a QuestPDF / HTML-to-PDF clone?
 
-No. It is a narrow **one-column** flow: immutable blocks → paginate → Skia PDF. No constraint layout, no CSS, no nested cell widgets.
+No. It is a narrow vertical flow: immutable sections → paginate → Skia PDF. No constraint layout, no CSS, no nested cell widgets.
 
 ## Should invoices use different types than books?
 
-No. Same `PagedDocument` and blocks. Compose differently (often no First/Toc; A4; columns + tables). Keep invoice vocabulary in your mapper.
+No. The same `Document`, sections, and content types support both. Compose invoices with A4,
+columns, tables, and mapper-owned billing vocabulary.
 
 ## First vs Cover vs IncludeCover?
 
 - Public model: **First** page (`FirstPage`, `IncludeCover`)
-- Layout enum: `PageKind.Cover` for that slot (historical name; same page)
+- Layout enum: `PageKind.First` for that slot (`PageKind.Cover` is a compatibility alias)
 - Prefer saying **First** in authoring docs and APIs
 
 ## Toc vs Content vs Body?
 
-- **Body** (builder): whole spine First → Content → Last  
-- **Content**: main block stream inside Body  
-- **Toc**: contents page generated from level-1 / Chapter titles (`IncludeToc`)
+- **Sections**: main vertical document flow  
+- **Body**: compatibility builder surface  
+- **Toc**: outline entries generated from level-one headings (`IncludeToc`)
 
 ## Why no Avalonia?
 

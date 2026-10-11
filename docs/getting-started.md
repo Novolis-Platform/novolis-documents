@@ -27,18 +27,16 @@ var document = Document.Create("Harbor Notes")
         .Trade6x9()
         .Header(h => h.Template("{title}").IncludeBody().UseChapterTitle())
         .Footer(f => f.Template("{page} / {pages}").IncludeBody()))
-    .Body(b => b
-        .First(f => f.Lines("Trade sample"))
-        .Content(c => c
-            .Toc()
-            .Chapter("Arrival", ch => ch
-                .Paragraph("The river ran cold through Duckville harbor.")
-                .Table(t => t
-                    .Headers("Cargo", "Tons")
-                    .Row("Grain", "120")
-                    .Rules(TableRuleStyle.Horizontal)
-                    .HeaderBackground())))
-        .Last(l => l.Title("Colophon").Lines("End of sample.")))
+    .FirstPage(page => page.Section(section => section.Text("Trade sample")))
+    .Section(section => section
+        .Heading("Arrival")
+        .Text("The river ran cold through Duckville harbor."))
+    .Table(table => table
+        .Header("Cargo", "Tons")
+        .Row("Grain", "120")
+        .Rules(TableRuleStyle.Horizontal)
+        .HeaderBackground())
+    .LastPage(page => page.Section(section => section.Text("End of sample.")))
     .Build();
 
 DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\harbor-notes.pdf");
@@ -46,13 +44,13 @@ DocumentPdf.Write(document, @"C:\Users\frank\.novolis\artifacts\harbor-notes.pdf
 
 ## First PDF (object initializer)
 
-Mappers and generators can build `PagedDocument` without the fluent DSL:
+Mappers and generators can build `Document` without the fluent DSL:
 
 ```csharp
 using Novolis.Documents;
 using Novolis.Documents.Skia;
 
-var document = new PagedDocument
+var document = new Document
 {
     Meta = new DocumentMeta { Title = "Hello", Author = "Novolis" },
     Setup = new PageSetup
@@ -61,18 +59,20 @@ var document = new PagedDocument
         Margin = TrimPresets.DefaultMargin,
     },
     Typography = new Typography(),
-    IncludeCover = true,
+    Sections =
+    [
+        new Section(
+        [
+            new Heading("One", 1),
+            new Text("Hello, document."),
+        ]),
+    ],
     Footer = new Footer
     {
         Template = "{page}",
-        IncludeBody = true, // First / Toc / Last default off (same as Header)
+        IncludeBody = true, // First / Last default off (same as Header)
     },
-    First = new FirstPage { Lines = ["Sample"] },
-    Body =
-    [
-        new HeadingBlock { Level = 1, Text = "One" },
-        new ParagraphBlock { Text = "Hello, document." },
-    ],
+    FirstPage = new PageDefinition([new Section([new Text("Sample")])]),
 };
 
 DocumentPdf.Write(document, "hello.pdf");

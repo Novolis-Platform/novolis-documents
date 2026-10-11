@@ -6,7 +6,9 @@
 
 # Novolis.Documents.Layout
 
-One-column pagination for `PagedDocument`: First (cover), optional Toc, body flow with H1 page breaks, Last page. Resolves header/footer include flags into `PageSlice.ShowHeader` / `ShowFooter`. Depends on `ITextMeasurer` so unit tests need no Skia.
+Renderer-independent pagination for `Document.Sections`: First, body, and Last page roles,
+semantic fragments, row-based table splitting, and resolved header/footer flags. Depends on
+`ITextMeasurer` so unit tests need no Skia.
 
 ## Install
 
@@ -21,9 +23,9 @@ Requires .NET 10 (`net10.0`). Usually pulled transitively by `Novolis.Documents.
 ```csharp
 using Novolis.Documents.Layout;
 
-var plan = DocumentPaginator.Paginate(document, measurer);
+var plan = SectionPaginator.Paginate(document, measurer);
 foreach (var page in plan.Pages)
-    Console.WriteLine($"{page.Number}: {page.Kind} ({page.Blocks.Count} blocks)");
+    Console.WriteLine($"{page.Number}: {page.Kind} ({page.Fragments.Count} fragments)");
 ```
 
 For a plan that matches PDF paint metrics, prefer `DocumentPdf.Layout` from `Novolis.Documents.Skia`.
