@@ -102,7 +102,8 @@ public sealed record TableFragment : SectionFragment
         float heightPt,
         bool isContinuation,
         bool hasRepeatedHeader,
-        IReadOnlyList<float>? columnWidths = null)
+        IReadOnlyList<float>? columnWidths = null,
+        TableRow? footer = null)
         : base(source, heightPt)
     {
         Rows = rows;
@@ -110,6 +111,7 @@ public sealed record TableFragment : SectionFragment
         IsContinuation = isContinuation;
         HasRepeatedHeader = hasRepeatedHeader;
         ColumnWidths = columnWidths ?? [];
+        Footer = footer;
     }
 
     /// <summary>Source table.</summary>
@@ -129,6 +131,9 @@ public sealed record TableFragment : SectionFragment
 
     /// <summary>Resolved column widths in points.</summary>
     public IReadOnlyList<float> ColumnWidths { get; }
+
+    /// <summary>Final summary row painted after the last body fragment.</summary>
+    public TableRow? Footer { get; }
 }
 
 /// <summary>Fragment of a boxed content section.</summary>

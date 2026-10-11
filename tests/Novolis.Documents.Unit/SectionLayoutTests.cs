@@ -71,6 +71,9 @@ public sealed class SectionLayoutTests
         await Assert.That(fragments.Length).IsGreaterThan(1);
         await Assert.That(fragments.Skip(1).All(static fragment => fragment.HasRepeatedHeader))
             .IsTrue();
+        await Assert.That(fragments.Skip(1).All(fragment =>
+                fragment.ColumnWidths.SequenceEqual(fragments[0].ColumnWidths)))
+            .IsTrue();
         await Assert.That(fragments.SelectMany(static fragment => fragment.Rows).Count)
             .IsEqualTo(rows.Length);
         await Assert.That(fragments.SelectMany(static fragment => fragment.Rows)

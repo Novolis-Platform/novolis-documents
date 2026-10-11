@@ -309,7 +309,8 @@ internal static class SemanticDocumentPdfRenderer
                         MeasureTable(document, table, width, measurer),
                         isContinuation: false,
                         hasRepeatedHeader: false,
-                        columnWidths: ResolveWidths(table, width, document, measurer)),
+                        columnWidths: ResolveWidths(table, width, document, measurer),
+                        footer: table.Options.Footer),
                     typeface,
                     boldTypeface,
                     measurer,
@@ -477,6 +478,8 @@ internal static class SemanticDocumentPdfRenderer
             DrawRow(header, headerFont, header: true);
         foreach (var row in fragment.Rows)
             DrawRow(row, bodyFont, header: false);
+        if (fragment.Footer is { } footer)
+            DrawRow(footer, bodyFont, header: false);
 
         void DrawRow(TableRow row, SKFont font, bool header)
         {
@@ -801,8 +804,9 @@ internal static class SemanticDocumentPdfRenderer
             }
         }
 
-        if (remaining < 0f)
+        if (remaining < -0.01f)
             return null;
+        remaining = System.Math.Max(0f, remaining);
         if (autos.Count > 0)
         {
             var autoBudget = weights > 0f
@@ -836,8 +840,9 @@ internal static class SemanticDocumentPdfRenderer
             }
         }
 
-        if (remaining < 0f)
+        if (remaining < -0.01f)
             return null;
+        remaining = System.Math.Max(0f, remaining);
         if (weights > 0f)
         {
             for (var i = 0; i < policies.Count; i++)

@@ -500,8 +500,13 @@ public static class SectionPaginator
             }
 
             var tailRows = rows.Skip(firstDataIndex).ToArray();
+            var tailColumns = columns
+                .Select((column, index) => new TableColumn(
+                    new ColumnWidth.Fixed(columnWidths[index]),
+                    column.Alignment))
+                .ToArray();
             var tail = new TableSection(
-                columns,
+                tailColumns,
                 tailRows,
                 table.Options,
                 table.Layout with { SpaceBefore = 0f });
@@ -517,8 +522,57 @@ public static class SectionPaginator
                 tail);
         }
 
-        if (footerHeight > 0f && used + footerHeight <= availableHeight)
-            used += footerHeight;
+        TableRow? finalFooter = null;
+        if (table.Options.Footer is { } candidate && footerHeight > 0f)
+        {
+            if (used + footerHeight <= availableHeight)
+            {
+                used += footerHeight;
+                finalFooter = candidate;
+            }
+            else if (fragmentRows.Count == 0)
+            {
+                if (headerHeight + footerHeight > pageHeight)
+                {
+                    return new SectionLayoutResult.Impossible(new LayoutFailure(
+                        LayoutFailureKind.SectionTooLarge,
+                        $"Table header and footer cannot share an empty page.",
+                        table.GetType(),
+                        width,
+                        pageHeight,
+                        headerHeight + footerHeight));
+                }
+
+                return new SectionLayoutResult.NeedsNewPage();
+            }
+            else
+            {
+                var footerColumns = columns
+                    .Select((column, index) => new TableColumn(
+                        new ColumnWidth.Fixed(columnWidths[index]),
+                        column.Alignment))
+                    .ToArray();
+                var footerTail = new TableSection(
+                    footerColumns,
+                    [],
+                    table.Options with
+                    {
+                        ShowHeader = false,
+                        RepeatHeader = false,
+                    },
+                    table.Layout with { SpaceBefore = 0f });
+                return new SectionLayoutResult.Split(
+                    new TableFragment(
+                        table,
+                        fragmentRows,
+                        header,
+                        used,
+                        continuation,
+                        repeated,
+                        columnWidths),
+                    footerTail);
+            }
+        }
 
         return new SectionLayoutResult.Fits(
             new TableFragment(
@@ -528,7 +582,8 @@ public static class SectionPaginator
                 used,
                 continuation,
                 repeated,
-                columnWidths));
+                columnWidths,
+                finalFooter));
     }
 
     static float MeasureContents(
@@ -723,8 +778,9 @@ public static class SectionPaginator
             }
         }
 
-        if (remaining < 0f)
+        if (remaining < -0.01f)
             return null;
+        remaining = System.Math.Max(0f, remaining);
 
         foreach (var index in autoIndexes)
         {
@@ -735,8 +791,9 @@ public static class SectionPaginator
             remaining -= widths[index];
         }
 
-        if (remaining < 0f)
+        if (remaining < -0.01f)
             return null;
+        remaining = System.Math.Max(0f, remaining);
 
         if (weights > 0f)
         {
