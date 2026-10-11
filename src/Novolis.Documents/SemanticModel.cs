@@ -364,6 +364,12 @@ public sealed class TableRow
         Cells = cells.ToArray();
     }
 
+    /// <summary>Creates a row from semantic cells.</summary>
+    public TableRow(params TableCell[] cells)
+        : this((IEnumerable<TableCell>)cells)
+    {
+    }
+
     /// <summary>Creates a row from text cells.</summary>
     public TableRow(params string[] cells)
         : this(cells.Select(static cell => new TableCell(cell)))
