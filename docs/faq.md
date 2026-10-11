@@ -39,5 +39,5 @@ Or the platform meta solution. Do not add a local NuGet folder feed.
 
 Dogfooding, not this library repo:
 
-- `d:\novolis\novolis-dogfooding\apps\documents\HelloDocument`
-- `d:\novolis\novolis-dogfooding\apps\documents\HelloMarkdownPdf`
+- `d:\novolis\novolis-lab\labs\documents\HelloDocument`
+- `d:\novolis\novolis-lab\labs\documents\HelloMarkdownPdf`

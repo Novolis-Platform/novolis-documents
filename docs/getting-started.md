@@ -82,11 +82,11 @@ DocumentPdf.Write(document, "hello.pdf");
 
 | App | Path | Purpose |
 | --- | --- | --- |
-| HelloDocument | `d:\novolis\novolis-dogfooding\apps\documents\HelloDocument` | Full fluent book-style sample |
-| HelloMarkdownPdf | `d:\novolis\novolis-dogfooding\apps\documents\HelloMarkdownPdf` | Markup → Documents → PDF |
+| HelloDocument | `d:\novolis\novolis-lab\labs\documents\HelloDocument` | Semantic document and table sample |
+| HelloMarkdownPdf | `d:\novolis\novolis-lab\labs\documents\HelloMarkdownPdf` | Markup → Documents → PDF |
 
 ```powershell
-dotnet run --project d:\novolis\novolis-dogfooding\apps\documents\HelloDocument\HelloDocument.csproj -p:NovolisUseProjectReferences=true
+dotnet run --project d:\novolis\novolis-lab\labs\documents\HelloDocument\HelloDocument.csproj -p:NovolisUseProjectReferences=true
 ```
 
 Artifact: `C:\Users\frank\.novolis\artifacts\hello-document\hello-document.pdf`
