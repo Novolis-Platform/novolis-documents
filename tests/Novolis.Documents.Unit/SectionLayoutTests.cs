@@ -138,6 +138,7 @@ public sealed class SectionLayoutTests
         var fragment = DocumentPaginator.Paginate(document, new FakeTextMeasurer())
             .Pages
             .SelectMany(static page => page.Fragments)
+            .Select(static placed => placed.Fragment)
             .OfType<TableFragment>()
             .Single();
 
@@ -181,6 +182,7 @@ public sealed class SectionLayoutTests
         var fragments = DocumentPaginator.Paginate(document, new FakeTextMeasurer())
             .Pages
             .SelectMany(static page => page.Fragments)
+            .Select(static placed => placed.Fragment)
             .OfType<TableFragment>()
             .ToArray();
 
