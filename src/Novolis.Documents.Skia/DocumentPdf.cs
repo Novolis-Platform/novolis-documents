@@ -5,7 +5,7 @@ using SkiaSharp;
 
 namespace Novolis.Documents.Skia;
 
-/// <summary>Writes a <see cref="PagedDocument"/> to PDF via SkiaSharp.</summary>
+/// <summary>Writes semantic documents and compatibility paged documents to PDF via SkiaSharp.</summary>
 public static class DocumentPdf
 {
     const string RegularFontResource = "Novolis.Documents.Skia.Fonts.LiberationSerif-Regular.ttf";
