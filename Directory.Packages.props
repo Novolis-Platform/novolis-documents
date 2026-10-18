@@ -4,8 +4,8 @@
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-    <PackageVersion Include="JetBrains.Annotations" Version="2025.2.4" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.402" />
+    <PackageVersion Include="JetBrains.Annotations" Version="2026.2.0" />
     <PackageVersion Include="Novolis.Math.Measure" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Xsd.Ubl" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Xsd.Ubl.Lean" Version="2026.1.*" />
@@ -16,6 +16,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.153.1" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="4.153.1" />
     <PackageVersion Include="Svg.Skia" Version="5.2.3" />
-    <PackageVersion Include="TUnit" Version="1.72.16" />
+    <PackageVersion Include="TUnit" Version="1.75.0" />
   </ItemGroup>
 </Project>
+
